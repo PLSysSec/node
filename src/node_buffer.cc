@@ -1,6 +1,7 @@
 #include "node.h"
 #include "node_buffer.h"
 
+#include "safe_v8.h"
 #include "env.h"
 #include "env-inl.h"
 #include "string_bytes.h"
@@ -430,6 +431,10 @@ MaybeLocal<Object> New(Environment* env, char* data, size_t length) {
 
 
 void CreateFromString(const FunctionCallbackInfo<Value>& args) {
+
+  Isolate* isolate = args.GetIsolate();
+
+#if 0
   CHECK(args[0]->IsString());
   CHECK(args[1]->IsString());
 
@@ -439,6 +444,58 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
   Local<Object> buf;
   if (New(args.GetIsolate(), args[0].As<String>(), enc).ToLocal(&buf))
     args.GetReturnValue().Set(buf);
+#endif
+
+
+#if 0
+  safeV8::StringVal(isolate, args[0]).onVal([&] (Local<String> stringBuf) {
+    safeV8::StringVal(isolate, args[1]).onVal([&] (Local<String> encoding) {
+
+    enum encoding enc = ParseEncoding(args.GetIsolate(), encoding, UTF8);
+    Local<Object> buf;
+    if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
+      args.GetReturnValue().Set(buf);
+
+    }).onErr([&isolate] (Local<Value> exception) {
+      isolate->ThrowException(exception);
+    });
+
+  }).onErr([&isolate] (Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+#endif
+
+  CASE(safeV8::StringVal(isolate, args[0]), exception, {
+      isolate->ThrowException(exception);
+  }, stringBuf, {
+    CASE(safeV8::StringVal(isolate, args[1]), exception, {
+      isolate->ThrowException(exception);
+    }, encoding, {
+        enum encoding enc = ParseEncoding(isolate, encoding, UTF8);
+        Local<Object> buf;
+        if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
+          args.GetReturnValue().Set(buf);
+    });
+  });
+#if 0
+#endif
+
+#if 0
+  Local<String> stringBuf;
+  Local<String> encoding;
+
+  MARSHALL(safeV8::StringVal(isolate, args[0]))
+    AS(stringBuf) OR_THROW(isolate, TypeError, "first argument should be a string")
+
+  MARSHALL(safeV8::StringVal(isolate, args[1]))
+    AS(encoding) OR_THROW(isolate, TypeError, "second argument should be a string")
+
+  enum encoding enc = ParseEncoding(args.GetIsolate(), encoding, UTF8);
+  Local<Object> buf;
+  if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
+    args.GetReturnValue().Set(buf);
+#endif
+
 }
 
 

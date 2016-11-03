@@ -34,7 +34,6 @@ namespace safeV8 {
   template <typename E, typename V>
   class MVal {
     public:
-      MVal(const bool is_err) : is_err(is_err) { }
       MVal(const E& e) : is_err(true), err (e) { }
       MVal(const V& v) : is_err(false), val (v) { }
 
@@ -74,38 +73,24 @@ namespace safeV8 {
       bool is_err;
       E err;
       V val;
-      template <class X, class Y>
+      template <typename X, typename Y>
         friend MVal<X, Y> Err(const X&);
-      template <class X, class Y>
+      template <typename X, typename Y>
         friend MVal<X, Y> Val(const Y&);
   };
 
-  template <class E, class V>
-  inline MVal<E, V> Err(const E& e) {
-    MVal<E, V> mv(true);
-    mv.err = e;
-    return mv;
-  }
-
-  template <class E, class V>
-  inline MVal<E, V> Val(const V& v) {
-    MVal<E, V> mv(false);
-    mv.val = v;
-    return mv;
-  }
 
 #define DEFINE_TY_VAL(Type) \
   MVal<Local<Value>, Local<Type>> Type##Val(Isolate* isolate, Local<Value> v) { \
     if (v->Is##Type()) { \
-      return Val<Local<Value>, Local<Type>>(v.As<Type>()); \
+      return MVal<Local<Value>, Local<Type>>(v.As<Type>()); \
     } else { \
       MaybeLocal<String> mErrMsg =  \
         v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString); \
       Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked()); \
-      return Err<Local<Value>, Local<Type>>(err); \
+      return MVal<Local<Value>, Local<Type>>(err); \
     } \
   }
-
 
 #define TYPE_LIST(V)   \
   V(Array)             \
@@ -144,6 +129,37 @@ namespace safeV8 {
 
 #undef TYPE_LIST
 #undef DEFINE_TY_VAL
+
+#define DEFINE_CTY_VAL(CType, JSType) \
+  MVal<Local<Value>, CType> CType##Val(Isolate* isolate, Local<Value> v) { \
+    if (v->Is##JSType()) { \
+      return MVal<Local<Value>, CType>(v->JSType##Value()); \
+    } else { \
+      MaybeLocal<String> mErrMsg =  \
+        v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString); \
+      Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked()); \
+      return MVal<Local<Value>, CType>(err); \
+    } \
+  }
+
+  DEFINE_CTY_VAL(bool, Boolean)
+  DEFINE_CTY_VAL(double, Number)
+  DEFINE_CTY_VAL(uint32_t, Uint32)
+  DEFINE_CTY_VAL(int32_t, Int32)
+#undef DEFINE_CTY_VAL
+
+  MVal<Local<Value>, int64_t>
+  int64_tVal(Isolate* isolate, Local<Value> v) {
+    int64_t num;
+    if (v->IsNumber() && v->IntegerValue(isolate->GetCurrentContext()).To(&num)) {
+      return MVal<Local<Value>, int64_t>(num);
+    } else {
+      MaybeLocal<String> mErrMsg =
+        v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString);
+      Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+      return MVal<Local<Value>, int64_t>(err);
+    }
+  }
 
 
 #define MARSHALL(mval) \

@@ -367,7 +367,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput1> ToVal(F func)
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput1>::type ToVal(F func)
   {
     first_argument<F> obj1;
     if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
@@ -380,7 +380,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput1> ToVal(F func)
+  typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput1>::type ToVal(F func)
   {
     first_argument<F> obj1;
     if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
@@ -395,7 +395,7 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_same<return_argument<F>, void>::value, void> OnErr(F func)
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
@@ -405,7 +405,7 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput1> OnErr(F func)
+  typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput1>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
@@ -429,7 +429,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput2> ToVal(F func)
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput2>::type ToVal(F func)
   {
     first_argument<F> obj1;
     second_argument<F> obj2;
@@ -446,7 +446,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput2> ToVal(F func)
+  typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput2>::type ToVal(F func)
   {
     first_argument<F> obj1;
     second_argument<F> obj2;
@@ -465,7 +465,7 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_same<return_argument<F>, void>::value, void> OnErr(F func)
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
@@ -475,7 +475,7 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput2> OnErr(F func)
+  typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput2>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
@@ -500,7 +500,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput3> ToVal(F func)
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput3>::type ToVal(F func)
   {
     first_argument<F> obj1;
     second_argument<F> obj2;
@@ -521,7 +521,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput3> ToVal(F func)
+  typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput3>::type ToVal(F func)
   {
     first_argument<F> obj1;
     second_argument<F> obj2;
@@ -544,7 +544,7 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_same<return_argument<F>, void>::value, void> OnErr(F func)
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
@@ -554,7 +554,7 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
   template<typename F>
-  std::enable_if_t<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput3> OnErr(F func)
+  typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput3>::type OnErr(F func)
   {
     if (exceptionThrown)
     {

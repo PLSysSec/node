@@ -446,7 +446,7 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(buf);
 #endif
 
-
+#if 0
   safeV8::StringVal(isolate, args[0]).onVal([&] (Local<String> stringBuf) {
     safeV8::StringVal(isolate, args[1]).onVal([&] (Local<String> encoding) {
 
@@ -462,7 +462,7 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
   }).onErr([&isolate] (Local<Value> exception) {
     isolate->ThrowException(exception);
   });
-#if 0
+
 #endif
 
 #if 0
@@ -481,6 +481,20 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(buf);
 #endif
 
+#if 1
+  return safeV8::With(isolate, args[0], args[1])
+    .ToVal([&] (Local<String> stringBuf, Local<String> encoding) {
+
+      enum encoding enc = ParseEncoding(args.GetIsolate(), encoding, UTF8);
+      Local<Object> buf;
+      if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
+        args.GetReturnValue().Set(buf);
+
+    }).OnErr([&isolate] (Local<Value> exception) {
+      isolate->ThrowException(exception);
+    });
+
+#endif
 }
 
 

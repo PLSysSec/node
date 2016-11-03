@@ -447,7 +447,6 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
 #endif
 
 
-#if 0
   safeV8::StringVal(isolate, args[0]).onVal([&] (Local<String> stringBuf) {
     safeV8::StringVal(isolate, args[1]).onVal([&] (Local<String> encoding) {
 
@@ -462,20 +461,6 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
 
   }).onErr([&isolate] (Local<Value> exception) {
     isolate->ThrowException(exception);
-  });
-#endif
-
-  CASE(safeV8::StringVal(isolate, args[0]), exception, {
-      isolate->ThrowException(exception);
-  }, stringBuf, {
-    CASE(safeV8::StringVal(isolate, args[1]), exception, {
-      isolate->ThrowException(exception);
-    }, encoding, {
-        enum encoding enc = ParseEncoding(isolate, encoding, UTF8);
-        Local<Object> buf;
-        if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
-          args.GetReturnValue().Set(buf);
-    });
   });
 #if 0
 #endif

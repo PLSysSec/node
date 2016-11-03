@@ -11,10 +11,10 @@ namespace safeV8 {
 
 
 
-  template <class E, class V>
+  template <typename E, typename V>
   class MVal;
 
-  template <class E>
+  template <typename E>
   class OnErr {
     public:
     OnErr () : is_err(false) { }
@@ -31,7 +31,7 @@ namespace safeV8 {
     E err;
   };
 
-  template <class E, class V>
+  template <typename E, typename V>
   class MVal {
     public:
       MVal(const bool is_err) : is_err(is_err) { }
@@ -145,17 +145,6 @@ namespace safeV8 {
 #undef TYPE_LIST
 #undef DEFINE_TY_VAL
 
-
-#define CASE(mval, errName, errBlock, valName, valBlock) \
-  do { \
-    if ((mval).IsError()) { \
-      auto errName = (mval).UnsafeError(); \
-      errBlock \
-    } else { \
-      auto valName = (mval).UnsafeVal(); \
-      valBlock \
-    } \
-  } while (0);
 
 #define MARSHALL(mval) \
   do { \

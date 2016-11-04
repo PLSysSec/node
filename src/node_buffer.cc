@@ -642,6 +642,7 @@ void Base64Slice(const FunctionCallbackInfo<Value>& args) {
 }
 
 
+#if B_SAFE_R == 0
 // bytesCopied = buffer.copy(target[, targetStart][, sourceStart][, sourceEnd]);
 void Copy(const FunctionCallbackInfo<Value> &args) {
   Environment* env = Environment::GetCurrent(args);
@@ -678,14 +679,67 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(to_copy);
 }
 
-#if B_SAFE_R == 2 
+#elif B_SAFE_R == 2 
+// bytesCopied = buffer.copy(target[, targetStart][, sourceStart][, sourceEnd]);
+void Copy(const FunctionCallbackInfo<Value> &args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> target_obj) {
+
+    return SPREAD_ARG_SAFE(isolate, args.This(), ts_obj, {
+      return SPREAD_ARG_SAFE(isolate, target_obj, target, {
+
+        size_t target_start;
+        size_t source_start;
+        size_t source_end;
+
+        THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[1], 0, &target_start));
+        THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[2], 0, &source_start));
+        THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[3], ts_obj_length, &source_end));
+
+        // Copy 0 bytes; we're done
+        if (target_start >= target_length || source_start >= source_end) {
+          args.GetReturnValue().Set(0);
+          return safeV8::Done;
+        }
+
+        if (source_start > ts_obj_length) {
+          return safeV8::Err(isolate, "out of range index", v8::Exception::RangeError);
+        }
+
+        if (source_end - source_start > target_length - target_start)
+          source_end = source_start + target_length - target_start;
+
+        uint32_t to_copy = MIN(MIN(source_end - source_start,
+          target_length - target_start),
+          ts_obj_length - source_start);
+
+        memmove(target_data + target_start, ts_obj_data + source_start, to_copy);
+        args.GetReturnValue().Set(to_copy);
+
+        return safeV8::Done;
+      });
+    });
+  })
+  .OnErr([&](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
+
+#if B_SAFE_R == 0
 void Fill(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   SPREAD_ARG(args[0], ts_obj);
 
-  //safeV8::uint32_tVal(env->isolate(), args[2]).onVal([&] (size_t start) {
     size_t start = args[2]->Uint32Value();
     size_t end = args[3]->Uint32Value();
     size_t fill_length = end - start;
@@ -774,98 +828,12 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   });*/
 }
 
-#elif B_SAFE_R == 3
-void Fill(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-  Isolate* isolate = env->isolate();
-
-
-  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
-  return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
-
-    return safeV8::uint32_tVal(env->isolate(), args[2], args[3])
-    .onVal([&](size_t start, size_t end) {
-
-      size_t fill_length = end - start;
-      Local<String> str_obj;
-      size_t str_length;
-      enum encoding enc;
-      THROW_AND_RETURN_IF_OOB_SAFE(isolate, start <= end);
-      THROW_AND_RETURN_IF_OOB_SAFE(isolate, fill_length + start <= ts_obj_length);
-
-      // First check if Buffer has been passed.
-      if (Buffer::HasInstance(args[1])) {
-        return SPREAD_ARG_SAFE(isolate, args[1], fill_obj, {
-          str_length = fill_obj_length;
-          memcpy(ts_obj_data + start, fill_obj_data, MIN(str_length, fill_length));
-          Fill_Helper(str_length, fill_length, const ts_obj_data, start);
-        });
-      }
-
-      return safeV8::uint32_tVal(env->isolate(), args[1])
-      .onVal([&](Uint32 uint32Val) {
-
-      })
-      .onVal([&](Uint32 uint32Val) {
-
-        int value = uint32Val & 255;
-        memset(ts_obj_data + start, value, fill_length);
-      });
-
-    // Then coerce everything that's not a string.
-    if (!args[1]->IsString()) {
-      int value = args[1]->Uint32Value() & 255;
-      memset(ts_obj_data + start, value, fill_length);
-      return;
-    }
-
-    str_obj = args[1]->ToString(env->isolate());
-    enc = ParseEncoding(env->isolate(), args[4], UTF8);
-    str_length =
-      enc == UTF8 ? str_obj->Utf8Length() :
-      enc == UCS2 ? str_obj->Length() * sizeof(uint16_t) : str_obj->Length();
-
-    if (enc == HEX && str_length % 2 != 0)
-      return env->ThrowTypeError("Invalid hex string");
-
-    if (str_length == 0)
-      return;
-
-    // Can't use StringBytes::Write() in all cases. For example if attempting
-    // to write a two byte character into a one byte Buffer.
-    if (enc == UTF8) {
-      node::Utf8Value str(env->isolate(), args[1]);
-      memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
-
-    }
-    else if (enc == UCS2) {
-      node::TwoByteValue str(env->isolate(), args[1]);
-      memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
-
-    }
-    else {
-      // Write initial String to Buffer, then use that memory to copy remainder
-      // of string. Correct the string length for cases like HEX where less than
-      // the total string length is written.
-      str_length = StringBytes::Write(env->isolate(),
-        ts_obj_data + start,
-        fill_length,
-        str_obj,
-        enc,
-        nullptr);
-      // This check is also needed in case Write() returns that no bytes could
-      // be written.
-      // TODO(trevnorris): Should this throw? Because of the string length was
-      // greater than 0 but couldn't be written then the string was invalid.
-      if (str_length == 0)
-        return;
-    }
+#elif B_SAFE_R == 2
 
 void Fill_Helper(size_t str_length, size_t fill_length, char* const ts_obj_data, size_t start)
 {
   if (str_length >= fill_length)
     return;
-
 
   size_t in_there = str_length;
   char* ptr = ts_obj_data + start + str_length;
@@ -880,8 +848,103 @@ void Fill_Helper(size_t str_length, size_t fill_length, char* const ts_obj_data,
     memcpy(ptr, ts_obj_data + start, fill_length - in_there);
   }
 }
+
+safeV8::SafeV8Promise_Base FillWithBuffer(const FunctionCallbackInfo<Value>& args, Isolate* isolate, char* const ts_obj_data, size_t start, size_t fill_length)
+{
+  return SPREAD_ARG_SAFE(isolate, args[1], fill_obj, {
+    size_t str_length = fill_obj_length;
+  memcpy(ts_obj_data + start, fill_obj_data, MIN(str_length, fill_length));
+  Fill_Helper(str_length, fill_length, ts_obj_data, start);
+  });
+}
+
+safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& args, Isolate* isolate, char* const ts_obj_data, size_t start, size_t fill_length)
+{
+  return safeV8::With(isolate, args[1])
+    .OnVal([&](uint32_t uint32Val) {
+
+    memset(ts_obj_data + start, uint32Val, fill_length);
+  })
+    .OnVal([&](Local<String> str_obj) {
+
+    enum encoding enc = ParseEncoding(isolate, args[4], UTF8);
+    size_t str_length =
+      enc == UTF8 ? str_obj->Utf8Length() :
+      enc == UCS2 ? str_obj->Length() * sizeof(uint16_t) : str_obj->Length();
+
+    if (enc == HEX && str_length % 2 != 0)
+      return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
+
+    if (str_length == 0)
+      return safeV8::Done;
+
+    // Can't use StringBytes::Write() in all cases. For example if attempting
+    // to write a two byte character into a one byte Buffer.
+    if (enc == UTF8) {
+      node::Utf8Value str(isolate, args[1]);
+      memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
+
+    }
+    else if (enc == UCS2) {
+      node::TwoByteValue str(isolate, args[1]);
+      memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
+
+    }
+    else {
+      // Write initial String to Buffer, then use that memory to copy remainder
+      // of string. Correct the string length for cases like HEX where less than
+      // the total string length is written.
+      str_length = StringBytes::Write(isolate,
+        ts_obj_data + start,
+        fill_length,
+        str_obj,
+        enc,
+        nullptr);
+      // This check is also needed in case Write() returns that no bytes could
+      // be written.
+      // TODO(trevnorris): Should this throw? Because of the string length was
+      // greater than 0 but couldn't be written then the string was invalid.
+      if (str_length == 0)
+        return safeV8::Done;
+    }
+
+    Fill_Helper(str_length, fill_length, ts_obj_data, start);
+    return safeV8::Done;
+  });
+}
+
+void Fill(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+
+    return safeV8::With(env->isolate(), args[2], args[3])
+    .OnVal([&](size_t start, size_t end) {
+
+    size_t fill_length = end - start;
+    THROW_AND_RETURN_IF_OOB_SAFE(isolate, start <= end);
+    THROW_AND_RETURN_IF_OOB_SAFE(isolate, fill_length + start <= ts_obj_length);
+
+    // First check if Buffer has been passed.
+    if (Buffer::HasInstance(args[1])) {
+      return FillWithBuffer(args, isolate, ts_obj_data, start, fill_length);
+    }
+    else {
+      return FillWithNoBuffer(args, isolate, ts_obj_data, start, fill_length);
+    }
+
+  });
+  })
+    .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
 #endif
 
+#if B_SAFE_R == 0
 template <encoding encoding>
 void StringWrite(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -921,6 +984,59 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(written);
 }
 
+#elif B_SAFE_R == 2
+
+template <encoding encoding>
+void StringWrite(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
+
+  return SPREAD_ARG_SAFE(isolate, args.This(), ts_obj, {
+
+    return safeV8::With(isolate, args[0])
+    .OnVal([&](Local<String> str) {
+
+      if (encoding == HEX && str->Length() % 2 != 0)
+        return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
+
+      size_t offset;
+      size_t max_length;
+
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[1], 0, &offset));
+
+      if (offset > ts_obj_length)
+        return safeV8::Err(isolate, "Offset is out of bounds", v8::Exception::RangeError);
+
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[2], ts_obj_length - offset, &max_length));
+      max_length = MIN(ts_obj_length - offset, max_length);
+
+      if (max_length == 0) {
+        args.GetReturnValue().Set(0);
+        return safeV8::Done;
+      }
+
+      uint32_t written = StringBytes::Write(env->isolate(),
+        ts_obj_data + offset,
+        max_length,
+        str,
+        encoding,
+        nullptr);
+
+      args.GetReturnValue().Set(written);
+      return safeV8::Done;
+    })
+    .OnErr([&](Local<Value> exception) {
+      return safeV8::Err(isolate, "Argument must be a string", v8::Exception::TypeError);
+    });
+  })
+  .OnErr([&](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
 
 void Base64Write(const FunctionCallbackInfo<Value>& args) {
   StringWrite<BASE64>(args);

@@ -79,6 +79,18 @@
   THROW_AND_RETURN_IF_OOB(end <= end_max);                                  \
   size_t length = end - start;
 
+#define SLICE_START_END_SAFE(isolate, start_arg, end_arg, end_max)                   \
+size_t start;                                                                        \
+size_t end;                                                                          \
+size_t length;                                                                       \
+do {                                                                                 \
+  THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(start_arg, 0, &start));      \
+  THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(end_arg, end_max, &end));    \
+  if (end < start) end = start;                                                      \
+  THROW_AND_RETURN_IF_OOB_SAFE(isolate, end <= end_max);                             \
+  length = end - start;                                                              \
+} while (0)
+
 namespace node {
 
 // if true, all Buffer and SlowBuffer instances will automatically zero-fill
@@ -474,9 +486,8 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
   Local<Object> buf;
   if (New(args.GetIsolate(), args[0].As<String>(), enc).ToLocal(&buf))
     args.GetReturnValue().Set(buf);
-#endif
 
-#if B_SAFE_R == 1
+#elif B_SAFE_R == 1
   Local<String> stringBuf;
   Local<String> encoding;
 
@@ -490,24 +501,25 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
   Local<Object> buf;
   if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
     args.GetReturnValue().Set(buf);
-#endif
 
-#if B_SAFE_R == 2
+#elif B_SAFE_R == 2
+
   return safeV8::With(isolate, args[0], args[1])
-    .OnVal([&] (Local<String> stringBuf, Local<String> encoding) {
+  .OnVal([&] (Local<String> stringBuf, Local<String> encoding) {
 
-      enum encoding enc = ParseEncoding(args.GetIsolate(), encoding, UTF8);
-      Local<Object> buf;
-      if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
-        args.GetReturnValue().Set(buf);
+    enum encoding enc = ParseEncoding(args.GetIsolate(), encoding, UTF8);
+    Local<Object> buf;
+    if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
+      args.GetReturnValue().Set(buf);
 
-    }).OnErr([&isolate] (Local<Value> exception) {
-      isolate->ThrowException(exception);
-    });
+  }).OnErr([&isolate] (Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
 
 #endif
 }
 
+#if B_SAFE_R == 0
 
 template <encoding encoding>
 void StringSlice(const FunctionCallbackInfo<Value>& args) {
@@ -526,7 +538,34 @@ void StringSlice(const FunctionCallbackInfo<Value>& args) {
       StringBytes::Encode(isolate, ts_obj_data + start, length, encoding));
 }
 
+#elif B_SAFE_R == 2
 
+template <encoding encoding>
+void StringSlice(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
+
+  return SPREAD_ARG_SAFE(isolate, args.This(), ts_obj, {
+    if (ts_obj_length == 0) {
+      args.GetReturnValue().SetEmptyString();
+      return safeV8::Done;
+    }
+
+    SLICE_START_END_SAFE(isolate, args[0], args[1], ts_obj_length);
+
+    args.GetReturnValue().Set(
+      StringBytes::Encode(isolate, ts_obj_data + start, length, encoding));
+
+    return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
 template <>
 void StringSlice<UCS2>(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -639,7 +678,7 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(to_copy);
 }
 
-
+#if B_SAFE_R == 2 
 void Fill(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -735,6 +774,113 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   });*/
 }
 
+#elif B_SAFE_R == 3
+void Fill(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+
+    return safeV8::uint32_tVal(env->isolate(), args[2], args[3])
+    .onVal([&](size_t start, size_t end) {
+
+      size_t fill_length = end - start;
+      Local<String> str_obj;
+      size_t str_length;
+      enum encoding enc;
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, start <= end);
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, fill_length + start <= ts_obj_length);
+
+      // First check if Buffer has been passed.
+      if (Buffer::HasInstance(args[1])) {
+        return SPREAD_ARG_SAFE(isolate, args[1], fill_obj, {
+          str_length = fill_obj_length;
+          memcpy(ts_obj_data + start, fill_obj_data, MIN(str_length, fill_length));
+          Fill_Helper(str_length, fill_length, const ts_obj_data, start);
+        });
+      }
+
+      return safeV8::uint32_tVal(env->isolate(), args[1])
+      .onVal([&](Uint32 uint32Val) {
+
+      })
+      .onVal([&](Uint32 uint32Val) {
+
+        int value = uint32Val & 255;
+        memset(ts_obj_data + start, value, fill_length);
+      });
+
+    // Then coerce everything that's not a string.
+    if (!args[1]->IsString()) {
+      int value = args[1]->Uint32Value() & 255;
+      memset(ts_obj_data + start, value, fill_length);
+      return;
+    }
+
+    str_obj = args[1]->ToString(env->isolate());
+    enc = ParseEncoding(env->isolate(), args[4], UTF8);
+    str_length =
+      enc == UTF8 ? str_obj->Utf8Length() :
+      enc == UCS2 ? str_obj->Length() * sizeof(uint16_t) : str_obj->Length();
+
+    if (enc == HEX && str_length % 2 != 0)
+      return env->ThrowTypeError("Invalid hex string");
+
+    if (str_length == 0)
+      return;
+
+    // Can't use StringBytes::Write() in all cases. For example if attempting
+    // to write a two byte character into a one byte Buffer.
+    if (enc == UTF8) {
+      node::Utf8Value str(env->isolate(), args[1]);
+      memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
+
+    }
+    else if (enc == UCS2) {
+      node::TwoByteValue str(env->isolate(), args[1]);
+      memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
+
+    }
+    else {
+      // Write initial String to Buffer, then use that memory to copy remainder
+      // of string. Correct the string length for cases like HEX where less than
+      // the total string length is written.
+      str_length = StringBytes::Write(env->isolate(),
+        ts_obj_data + start,
+        fill_length,
+        str_obj,
+        enc,
+        nullptr);
+      // This check is also needed in case Write() returns that no bytes could
+      // be written.
+      // TODO(trevnorris): Should this throw? Because of the string length was
+      // greater than 0 but couldn't be written then the string was invalid.
+      if (str_length == 0)
+        return;
+    }
+
+void Fill_Helper(size_t str_length, size_t fill_length, char* const ts_obj_data, size_t start)
+{
+  if (str_length >= fill_length)
+    return;
+
+
+  size_t in_there = str_length;
+  char* ptr = ts_obj_data + start + str_length;
+
+  while (in_there < fill_length - in_there) {
+    memcpy(ptr, ts_obj_data + start, in_there);
+    ptr += in_there;
+    in_there *= 2;
+  }
+
+  if (in_there < fill_length) {
+    memcpy(ptr, ts_obj_data + start, fill_length - in_there);
+  }
+}
+#endif
 
 template <encoding encoding>
 void StringWrite(const FunctionCallbackInfo<Value>& args) {
@@ -815,6 +961,7 @@ static inline void Swizzle(char* start, unsigned int len) {
   }
 }
 
+#if B_SAFE_R == 0
 
 template <typename T, enum Endianness endianness>
 void ReadFloatGeneric(const FunctionCallbackInfo<Value>& args) {
@@ -838,6 +985,43 @@ void ReadFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(na.val);
 }
 
+#elif B_SAFE_R == 2
+
+template <typename T, enum Endianness endianness>
+void ReadFloatGeneric(const FunctionCallbackInfo<Value>& args) {
+
+  Isolate* isolate = args.GetIsolate();
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
+
+  return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+    return safeV8::With(isolate, args[1])
+    .OnVal([&](uint32_t offset) {
+
+      if ((offset + sizeof(T)) > ts_obj_length) {
+        return safeV8::Err(isolate, "(offset + sizeof(T)) <= ts_obj_length");
+      }
+
+      union NoAlias {
+        T val;
+        char bytes[sizeof(T)];
+      };
+
+      union NoAlias na;
+      const char* ptr = static_cast<const char*>(ts_obj_data) + offset;
+      memcpy(na.bytes, ptr, sizeof(na.bytes));
+      if (endianness != GetEndianness())
+        Swizzle(na.bytes, sizeof(na.bytes));
+
+      args.GetReturnValue().Set(na.val);
+      return safeV8::Done;
+    });
+  })
+  .OnErr([&](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
 
 void ReadFloatLE(const FunctionCallbackInfo<Value>& args) {
   ReadFloatGeneric<float, kLittleEndian>(args);
@@ -858,7 +1042,7 @@ void ReadDoubleBE(const FunctionCallbackInfo<Value>& args) {
   ReadFloatGeneric<double, kBigEndian>(args);
 }
 
-
+#if B_SAFE_R == 0
 template <typename T, enum Endianness endianness>
 void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -903,6 +1087,65 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   memcpy(ptr, na.bytes, memcpy_num);
 }
 
+#elif B_SAFE_R == 2
+
+template <typename T, enum Endianness endianness>
+void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = args.GetIsolate();
+
+  bool should_assert = args.Length() < 4;
+
+  if (should_assert) {
+    THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  }
+
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Uint8Array> ts_obj) {
+
+    ArrayBuffer::Contents ts_obj_c = ts_obj->Buffer()->GetContents();
+    const size_t ts_obj_offset = ts_obj->ByteOffset();
+    const size_t ts_obj_length = ts_obj->ByteLength();
+    char* const ts_obj_data =
+      static_cast<char*>(ts_obj_c.Data()) + ts_obj_offset;
+    if (ts_obj_length > 0) {
+      if (ts_obj_data == nullptr) {
+        return safeV8::Err(isolate, "ts_obj_data = nullptr");
+      }
+    }
+
+    T val = args[1]->NumberValue(env->context()).FromMaybe(0);
+    size_t offset = args[2]->IntegerValue(env->context()).FromMaybe(0);
+
+    size_t memcpy_num = sizeof(T);
+
+    if (should_assert) {
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, offset + memcpy_num >= memcpy_num);
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, offset + memcpy_num <= ts_obj_length);
+    }
+
+    if (offset + memcpy_num > ts_obj_length)
+      memcpy_num = ts_obj_length - offset;
+
+    union NoAlias {
+      T val;
+      char bytes[sizeof(T)];
+    };
+
+    union NoAlias na = { val };
+    char* ptr = static_cast<char*>(ts_obj_data) + offset;
+    if (endianness != GetEndianness())
+      Swizzle(na.bytes, sizeof(na.bytes));
+    memcpy(ptr, na.bytes, memcpy_num);
+
+    return safeV8::Done;
+  })
+  .OnErr([&](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
 
 void WriteFloatLE(const FunctionCallbackInfo<Value>& args) {
   WriteFloatGeneric<float, kLittleEndian>(args);
@@ -941,7 +1184,7 @@ void ByteLengthUtf8(const FunctionCallbackInfo<Value> &args) {
       args.GetReturnValue().Set(val->Utf8Length());
     })
     .OnErr([&](Local<Value> exception) {
-      args.GetIsolate()->ThrowException(exception);
+      isolate->ThrowException(exception);
     });
 #endif
 }
@@ -1130,6 +1373,7 @@ int64_t IndexOfOffset(size_t length, int64_t offset_i64, bool is_forward) {
   }
 }
 
+#if B_SAFE_R == 0
 void IndexOfString(const FunctionCallbackInfo<Value>& args) {
   ASSERT(args[1]->IsString());
   ASSERT(args[2]->IsNumber());
@@ -1236,6 +1480,141 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
       result == haystack_length ? -1 : static_cast<int>(result));
 }
 
+#elif B_SAFE_R == 2
+
+void IndexOfString(const FunctionCallbackInfo<Value>& args) {
+
+  Isolate* isolate = args.GetIsolate();
+
+  enum encoding enc = ParseEncoding(args.GetIsolate(),
+    args[3],
+    UTF8);
+
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
+
+  return safeV8::With(isolate, args[1], args[2], args[4])
+  .OnVal([&](Local<String> needle, int64_t offset_i64, bool is_forward) {
+
+    return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+
+      const char* haystack = ts_obj_data;
+      // Round down to the nearest multiple of 2 in case of UCS2.
+      const size_t haystack_length = (enc == UCS2) ?
+        ts_obj_length &~1 : ts_obj_length;  // NOLINT(whitespace/operators)
+
+      const size_t needle_length =
+        StringBytes::Size(args.GetIsolate(), needle, enc);
+
+      if (needle_length == 0 || haystack_length == 0) {
+        args.GetReturnValue().Set(-1);
+        return safeV8::Done;
+      }
+
+      int64_t opt_offset = IndexOfOffset(haystack_length, offset_i64, is_forward);
+      if (opt_offset <= -1) {
+        args.GetReturnValue().Set(-1);
+        return safeV8::Done;
+      }
+      size_t offset = static_cast<size_t>(opt_offset);
+      if (offset >= haystack_length) {
+        args.GetReturnValue().Set(-1);
+        return safeV8::Done;
+      }
+
+      if ((is_forward && needle_length + offset > haystack_length) ||
+        needle_length > haystack_length) {
+        args.GetReturnValue().Set(-1);
+        return safeV8::Done;
+      }
+
+      size_t result = haystack_length;
+
+      if (enc == UCS2) {
+        String::Value needle_value(needle);
+        if (*needle_value == nullptr) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+
+        if (haystack_length < 2 || needle_value.length() < 1) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+
+        if (IsBigEndian()) {
+          StringBytes::InlineDecoder decoder;
+          decoder.Decode(Environment::GetCurrent(args), needle, args[3], UCS2);
+          const uint16_t* decoded_string =
+            reinterpret_cast<const uint16_t*>(decoder.out());
+
+          if (decoded_string == nullptr) {
+            args.GetReturnValue().Set(-1);
+            return safeV8::Done;
+          }
+
+          result = SearchString(reinterpret_cast<const uint16_t*>(haystack),
+            haystack_length / 2,
+            decoded_string,
+            decoder.size() / 2,
+            offset / 2,
+            is_forward);
+        }
+        else {
+          result = SearchString(reinterpret_cast<const uint16_t*>(haystack),
+            haystack_length / 2,
+            reinterpret_cast<const uint16_t*>(*needle_value),
+            needle_value.length(),
+            offset / 2,
+            is_forward);
+        }
+        result *= 2;
+      }
+      else if (enc == UTF8) {
+        String::Utf8Value needle_value(needle);
+        if (*needle_value == nullptr) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+
+        result = SearchString(reinterpret_cast<const uint8_t*>(haystack),
+          haystack_length,
+          reinterpret_cast<const uint8_t*>(*needle_value),
+          needle_length,
+          offset,
+          is_forward);
+      }
+      else if (enc == LATIN1) {
+        uint8_t* needle_data = node::UncheckedMalloc<uint8_t>(needle_length);
+        if (needle_data == nullptr) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+        needle->WriteOneByte(
+          needle_data, 0, needle_length, String::NO_NULL_TERMINATION);
+
+        result = SearchString(reinterpret_cast<const uint8_t*>(haystack),
+          haystack_length,
+          needle_data,
+          needle_length,
+          offset,
+          is_forward);
+        free(needle_data);
+      }
+
+      args.GetReturnValue().Set(
+        result == haystack_length ? -1 : static_cast<int>(result));
+
+      return safeV8::Done;
+    });
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
+
+#if B_SAFE_R == 0
 void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
   ASSERT(args[1]->IsObject());
   ASSERT(args[2]->IsNumber());
@@ -1300,6 +1679,94 @@ void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
       result == haystack_length ? -1 : static_cast<int>(result));
 }
 
+#elif B_SAFE_R == 2
+
+void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
+  Isolate* isolate = args.GetIsolate();
+
+  enum encoding enc = ParseEncoding(args.GetIsolate(),
+    args[3],
+    UTF8);
+
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[1]);
+
+  return safeV8::With(isolate, args[2], args[4])
+    .OnVal([&](int64_t offset_i64, bool is_forward) {
+
+    return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+      return SPREAD_ARG_SAFE(isolate, args[1], buf,{
+
+        const char* haystack = ts_obj_data;
+        const size_t haystack_length = ts_obj_length;
+        const char* needle = buf_data;
+        const size_t needle_length = buf_length;
+
+        if (needle_length == 0 || haystack_length == 0) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+
+        int64_t opt_offset = IndexOfOffset(haystack_length, offset_i64, is_forward);
+        if (opt_offset <= -1) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+
+        size_t offset = static_cast<size_t>(opt_offset);
+        if (offset >= haystack_length)
+        {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+
+        if ((is_forward && needle_length + offset > haystack_length) ||
+          needle_length > haystack_length) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+
+        size_t result = haystack_length;
+
+        if (enc == UCS2) {
+          if (haystack_length < 2 || needle_length < 2) {
+            args.GetReturnValue().Set(-1);
+            return safeV8::Done;
+          }
+          result = SearchString(
+            reinterpret_cast<const uint16_t*>(haystack),
+            haystack_length / 2,
+            reinterpret_cast<const uint16_t*>(needle),
+            needle_length / 2,
+            offset / 2,
+            is_forward);
+          result *= 2;
+        }
+        else {
+          result = SearchString(
+            reinterpret_cast<const uint8_t*>(haystack),
+            haystack_length,
+            reinterpret_cast<const uint8_t*>(needle),
+            needle_length,
+            offset,
+            is_forward);
+        }
+
+        args.GetReturnValue().Set(
+          result == haystack_length ? -1 : static_cast<int>(result));
+
+        return safeV8::Done;
+      });
+    });
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
+
+#if B_SAFE_R == 0
 void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
   ASSERT(args[1]->IsNumber());
   ASSERT(args[2]->IsNumber());
@@ -1330,7 +1797,53 @@ void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
                                 : -1);
 }
 
+#elif B_SAFE_R == 2
 
+void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
+
+  Isolate* isolate = args.GetIsolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
+
+  return safeV8::With(isolate, args[1], args[2], args[3])
+  .OnVal([&](uint32_t needle, int64_t offset_i64, bool is_forward) {
+
+    return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+
+      int64_t opt_offset = IndexOfOffset(ts_obj_length, offset_i64, is_forward);
+      if (opt_offset <= -1) {
+        args.GetReturnValue().Set(-1);
+        return safeV8::Done;
+      }
+
+      size_t offset = static_cast<size_t>(opt_offset);
+      if(offset >= ts_obj_length) {
+        args.GetReturnValue().Set(-1);
+        return safeV8::Done;
+      }
+
+      const void* ptr;
+      if (is_forward) {
+        ptr = memchr(ts_obj_data + offset, needle, ts_obj_length - offset);
+      }
+      else {
+        ptr = node::stringsearch::MemrchrFill(ts_obj_data, needle, offset + 1);
+      }
+      const char* ptr_char = static_cast<const char*>(ptr);
+      args.GetReturnValue().Set(ptr ? static_cast<int>(ptr_char - ts_obj_data)
+        : -1);
+
+      return safeV8::Done;
+    });
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
+
+#if B_SAFE_R == 0
 void Swap16(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
@@ -1356,6 +1869,50 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   SwapBytes64(ts_obj_data, ts_obj_length);
   args.GetReturnValue().Set(args[0]);
 }
+
+#elif B_SAFE_R == 2
+void Swap16(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+    SwapBytes16(ts_obj_data, ts_obj_length);
+    args.GetReturnValue().Set(args[0]);
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+void Swap32(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+    SwapBytes32(ts_obj_data, ts_obj_length);
+    args.GetReturnValue().Set(args[0]);
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+void Swap64(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+    SwapBytes64(ts_obj_data, ts_obj_length);
+    args.GetReturnValue().Set(args[0]);
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+#endif
 
 #if B_SAFE_R == 0
 // pass Buffer object to load prototype methods
@@ -1402,44 +1959,44 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
   Local<Context> context = env->context();
 
   return safeV8::With(isolate, args[0])
-    .OnVal([&](Local<Object> proto) -> safeV8::SafeV8Promise_Base {
+  .OnVal([&](Local<Object> proto) -> safeV8::SafeV8Promise_Base {
 
-      env->set_buffer_prototype_object(proto);
+    env->set_buffer_prototype_object(proto);
 
-      env->SetMethod(proto, "asciiSlice", AsciiSlice);
-      env->SetMethod(proto, "base64Slice", Base64Slice);
-      env->SetMethod(proto, "latin1Slice", Latin1Slice);
-      env->SetMethod(proto, "hexSlice", HexSlice);
-      env->SetMethod(proto, "ucs2Slice", Ucs2Slice);
-      env->SetMethod(proto, "utf8Slice", Utf8Slice);
+    env->SetMethod(proto, "asciiSlice", AsciiSlice);
+    env->SetMethod(proto, "base64Slice", Base64Slice);
+    env->SetMethod(proto, "latin1Slice", Latin1Slice);
+    env->SetMethod(proto, "hexSlice", HexSlice);
+    env->SetMethod(proto, "ucs2Slice", Ucs2Slice);
+    env->SetMethod(proto, "utf8Slice", Utf8Slice);
 
-      env->SetMethod(proto, "asciiWrite", AsciiWrite);
-      env->SetMethod(proto, "base64Write", Base64Write);
-      env->SetMethod(proto, "latin1Write", Latin1Write);
-      env->SetMethod(proto, "hexWrite", HexWrite);
-      env->SetMethod(proto, "ucs2Write", Ucs2Write);
-      env->SetMethod(proto, "utf8Write", Utf8Write);
+    env->SetMethod(proto, "asciiWrite", AsciiWrite);
+    env->SetMethod(proto, "base64Write", Base64Write);
+    env->SetMethod(proto, "latin1Write", Latin1Write);
+    env->SetMethod(proto, "hexWrite", HexWrite);
+    env->SetMethod(proto, "ucs2Write", Ucs2Write);
+    env->SetMethod(proto, "utf8Write", Utf8Write);
 
-      env->SetMethod(proto, "copy", Copy);
+    env->SetMethod(proto, "copy", Copy);
 
-      if (auto zero_fill_field = env->isolate_data()->zero_fill_field()) {
-        return safeV8::With(isolate, args[1])
-        .OnVal([&](Local<Object> binding_object) {
-          auto array_buffer = ArrayBuffer::New(env->isolate(),
-            zero_fill_field,
-            sizeof(*zero_fill_field));
-          auto name = FIXED_ONE_BYTE_STRING(env->isolate(), "zeroFill");
-          auto value = Uint32Array::New(array_buffer, 0, 1);
+    if (auto zero_fill_field = env->isolate_data()->zero_fill_field()) {
+      return safeV8::With(isolate, args[1])
+      .OnVal([&](Local<Object> binding_object) {
+        auto array_buffer = ArrayBuffer::New(env->isolate(),
+          zero_fill_field,
+          sizeof(*zero_fill_field));
+        auto name = FIXED_ONE_BYTE_STRING(env->isolate(), "zeroFill");
+        auto value = Uint32Array::New(array_buffer, 0, 1);
 
-          return safeV8::SetField(context, binding_object, name, value);
-        });
-      }
+        return safeV8::SetField(context, binding_object, name, value);
+      });
+    }
 
-      return safeV8::Done;
-    })
-    .OnErr([&isolate](Local<Value> exception) {
-      isolate->ThrowException(exception);
-    });
+    return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
 }
 #endif
 

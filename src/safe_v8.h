@@ -346,6 +346,8 @@ protected:
   Local<Value> err;
   bool exceptionThrown = false;
 public:
+  SafeV8Promise_Base() {}
+
   Local<Value> GetException()
   {
     return err;
@@ -354,7 +356,38 @@ public:
   {
     return exceptionThrown;
   }
+
+  friend static SafeV8Promise_Base Err(Local<Value> err);
+  friend static SafeV8Promise_Base Err(Isolate* isolate, char* err);
+  friend static SafeV8Promise_Base Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>));
 };
+
+const SafeV8Promise_Base Done;
+
+static SafeV8Promise_Base Err(Local<Value> err)
+{
+  SafeV8Promise_Base e;
+  e.exceptionThrown = true;
+  e.err = err;
+}
+
+static SafeV8Promise_Base Err(Isolate* isolate, char* err)
+{
+  SafeV8Promise_Base e;
+  e.exceptionThrown = true;
+  MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, err, v8::String::NewStringType::kNormalString);
+  e.err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+  return e;
+}
+
+static SafeV8Promise_Base Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>))
+{
+  SafeV8Promise_Base e;
+  e.exceptionThrown = true;
+  MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, err, v8::String::NewStringType::kNormalString);
+  e.err = errorType(mErrMsg.ToLocalChecked());
+  return e;
+}
 
 /* Class which handles the single output value case */
 class SafeV8Promise_GetOutput1 : public SafeV8Promise_Base

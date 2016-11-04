@@ -9,9 +9,18 @@
 #include "util-inl.h"
 #include "v8-profiler.h"
 #include "v8.h"
+#include "safe_v8.h"
 
 #include <string.h>
 #include <limits.h>
+
+//Code version
+//Default
+//#define B_SAFE_R 0
+//New Macro
+//#define B_SAFE_R 1
+//With Api
+#define B_SAFE_R 2
 
 #define BUFFER_ID 0xB0E4
 
@@ -20,6 +29,13 @@
 #define THROW_AND_RETURN_IF_OOB(r)                                          \
   do {                                                                      \
     if (!(r)) return env->ThrowRangeError("out of range index");            \
+  } while (0)
+
+#define THROW_AND_RETURN_IF_OOB_SAFE(isolate, r)                            \
+  do {                                                                      \
+    if (!(r))                                                               \
+      return safeV8::Err(isolate, "out of range index",                     \
+        v8::Exception::RangeError);                                         \
   } while (0)
 
 #define THROW_AND_RETURN_UNLESS_BUFFER(env, obj)                            \
@@ -38,6 +54,21 @@
       static_cast<char*>(name##_c.Data()) + name##_offset;                    \
   if (name##_length > 0)                                                      \
     CHECK_NE(name##_data, nullptr);
+
+#define SPREAD_ARG_SAFE(isolate, val, name, block)                                \
+  safeV8::With(isolate, val)                                                      \
+    .OnVal([&](Local<Uint8Array> name) -> safeV8::SafeV8Promise_Base {            \
+      ArrayBuffer::Contents name##_c = name->Buffer()->GetContents();             \
+      const size_t name##_offset = name->ByteOffset();                            \
+      const size_t name##_length = name->ByteLength();                            \
+      char* const name##_data =                                                   \
+          static_cast<char*>(name##_c.Data()) + name##_offset;                    \
+      if (name##_length > 0 && name##_data != nullptr){                           \
+        return safeV8::Err(isolate, "SPREAD ARGS FAILED");                        \
+      }                                                                           \
+      block                                                                       \
+    })
+
 
 #define SLICE_START_END(start_arg, end_arg, end_max)                        \
   size_t start;                                                             \
@@ -433,7 +464,7 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
 
   Isolate* isolate = args.GetIsolate();
 
-#if 1
+#if B_SAFE_R == 0
   CHECK(args[0]->IsString());
   CHECK(args[1]->IsString());
 
@@ -445,26 +476,7 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(buf);
 #endif
 
-#if 0
-  safeV8::StringVal(isolate, args[0]).onVal([&] (Local<String> stringBuf) {
-    safeV8::StringVal(isolate, args[1]).onVal([&] (Local<String> encoding) {
-
-    enum encoding enc = ParseEncoding(args.GetIsolate(), encoding, UTF8);
-    Local<Object> buf;
-    if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
-      args.GetReturnValue().Set(buf);
-
-    }).onErr([&isolate] (Local<Value> exception) {
-      isolate->ThrowException(exception);
-    });
-
-  }).onErr([&isolate] (Local<Value> exception) {
-    isolate->ThrowException(exception);
-  });
-
-#endif
-
-#if 0
+#if B_SAFE_R == 1
   Local<String> stringBuf;
   Local<String> encoding;
 
@@ -480,7 +492,7 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(buf);
 #endif
 
-#if 0
+#if B_SAFE_R == 2
   return safeV8::With(isolate, args[0], args[1])
     .OnVal([&] (Local<String> stringBuf, Local<String> encoding) {
 
@@ -913,10 +925,25 @@ void WriteDoubleBE(const FunctionCallbackInfo<Value>& args) {
 
 
 void ByteLengthUtf8(const FunctionCallbackInfo<Value> &args) {
+#if B_SAFE_R == 0
+
   CHECK(args[0]->IsString());
 
   // Fast case: avoid StringBytes on UTF8 string. Jump to v8.
   args.GetReturnValue().Set(args[0].As<String>()->Utf8Length());
+#endif
+#if B_SAFE_R == 2
+  Isolate* isolate = args.GetIsolate();
+
+  return safeV8::With(isolate, args[0])
+    .OnVal([&](Local<String> val) {
+      // Fast case: avoid StringBytes on UTF8 string. Jump to v8.
+      args.GetReturnValue().Set(val->Utf8Length());
+    })
+    .OnErr([&](Local<Value> exception) {
+      args.GetIsolate()->ThrowException(exception);
+    });
+#endif
 }
 
 // Normalize val to be an integer in the range of [1, -1] since
@@ -936,6 +963,7 @@ static int normalizeCompareVal(int val, size_t a_length, size_t b_length) {
   return val;
 }
 
+#if B_SAFE_R == 0
 void CompareOffset(const FunctionCallbackInfo<Value> &args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -975,23 +1003,98 @@ void CompareOffset(const FunctionCallbackInfo<Value> &args) {
 
   args.GetReturnValue().Set(val);
 }
+#endif
+#if B_SAFE_R == 2
 
+void CompareOffset(const FunctionCallbackInfo<Value> &args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[1]);
+
+  return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+    return SPREAD_ARG_SAFE(isolate, args[1], target,{
+
+      size_t target_start;
+      size_t source_start;
+      size_t source_end;
+      size_t target_end;
+
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[2], 0, &target_start));
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[3], 0, &source_start));
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[4], target_length, &target_end));
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[5], ts_obj_length, &source_end));
+
+      if (source_start > ts_obj_length || target_start > target_length)
+        return safeV8::Err(isolate, "out of range index", v8::Exception::RangeError);
+
+      if (source_start >= source_end || target_start >= target_end)
+        return safeV8::Err(isolate, "Failed : source_start >= source_end || target_start >= target_end");
+
+      size_t to_cmp = MIN(MIN(source_end - source_start,
+        target_end - target_start),
+        ts_obj_length - source_start);
+
+      int val = normalizeCompareVal(to_cmp > 0 ?
+        memcmp(ts_obj_data + source_start,
+          target_data + target_start,
+          to_cmp) : 0,
+        source_end - source_start,
+        target_end - target_start);
+
+      args.GetReturnValue().Set(val);
+    });
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
+
+#if B_SAFE_R == 0
 void Compare(const FunctionCallbackInfo<Value> &args) {
   Environment* env = Environment::GetCurrent(args);
 
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[1]);
+
   SPREAD_ARG(args[0], obj_a);
   SPREAD_ARG(args[1], obj_b);
 
   size_t cmp_length = MIN(obj_a_length, obj_b_length);
 
   int val = normalizeCompareVal(cmp_length > 0 ?
-                                memcmp(obj_a_data, obj_b_data, cmp_length) : 0,
-                                obj_a_length, obj_b_length);
+    memcmp(obj_a_data, obj_b_data, cmp_length) : 0,
+    obj_a_length, obj_b_length);
   args.GetReturnValue().Set(val);
 }
+#endif
+#if B_SAFE_R == 2
+void Compare(const FunctionCallbackInfo<Value> &args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
 
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  THROW_AND_RETURN_UNLESS_BUFFER(env, args[1]);
+
+  return SPREAD_ARG_SAFE(isolate, args[0], obj_a, {
+    return SPREAD_ARG_SAFE(isolate, args[1], obj_b, {
+      size_t cmp_length = MIN(obj_a_length, obj_b_length);
+
+      int val = normalizeCompareVal(cmp_length > 0 ?
+                                  memcmp(obj_a_data, obj_b_data, cmp_length) : 0,
+                                  obj_a_length, obj_b_length);
+
+      args.GetReturnValue().Set(val);
+    });
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+#endif
 
 // Computes the offset for starting an indexOf or lastIndexOf search.
 // Returns either a valid offset in [0...<length - 1>], ie inside the Buffer,
@@ -1254,7 +1357,7 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 }
 
-
+#if B_SAFE_R == 0
 // pass Buffer object to load prototype methods
 void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -1289,8 +1392,56 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
     auto value = Uint32Array::New(array_buffer, 0, 1);
     CHECK(binding_object->Set(env->context(), name, value).FromJust());
   }
-}
 
+}
+#endif
+#if B_SAFE_R == 2
+void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+  Local<Context> context = env->context();
+
+  return safeV8::With(isolate, args[0])
+    .OnVal([&](Local<Object> proto) -> safeV8::SafeV8Promise_Base {
+
+      env->set_buffer_prototype_object(proto);
+
+      env->SetMethod(proto, "asciiSlice", AsciiSlice);
+      env->SetMethod(proto, "base64Slice", Base64Slice);
+      env->SetMethod(proto, "latin1Slice", Latin1Slice);
+      env->SetMethod(proto, "hexSlice", HexSlice);
+      env->SetMethod(proto, "ucs2Slice", Ucs2Slice);
+      env->SetMethod(proto, "utf8Slice", Utf8Slice);
+
+      env->SetMethod(proto, "asciiWrite", AsciiWrite);
+      env->SetMethod(proto, "base64Write", Base64Write);
+      env->SetMethod(proto, "latin1Write", Latin1Write);
+      env->SetMethod(proto, "hexWrite", HexWrite);
+      env->SetMethod(proto, "ucs2Write", Ucs2Write);
+      env->SetMethod(proto, "utf8Write", Utf8Write);
+
+      env->SetMethod(proto, "copy", Copy);
+
+      if (auto zero_fill_field = env->isolate_data()->zero_fill_field()) {
+        return safeV8::With(isolate, args[1])
+        .OnVal([&](Local<Object> binding_object) {
+          auto array_buffer = ArrayBuffer::New(env->isolate(),
+            zero_fill_field,
+            sizeof(*zero_fill_field));
+          auto name = FIXED_ONE_BYTE_STRING(env->isolate(), "zeroFill");
+          auto value = Uint32Array::New(array_buffer, 0, 1);
+
+          return safeV8::SetField(context, binding_object, name, value);
+        });
+      }
+
+      return safeV8::Done;
+    })
+    .OnErr([&isolate](Local<Value> exception) {
+      isolate->ThrowException(exception);
+    });
+}
+#endif
 
 void Initialize(Local<Object> target,
                 Local<Value> unused,

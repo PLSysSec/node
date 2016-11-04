@@ -12,7 +12,6 @@
 #include "string_bytes.h"
 #include "util.h"
 #include "util-inl.h"
-#include "safe_v8.h"
 #include "v8.h"
 // CNNIC Hash WhiteList is taken from
 // https://hg.mozilla.org/mozilla-central/raw-file/98820360ab66/security/
@@ -5320,7 +5319,7 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
 
     if (env->in_domain())
     {
-      #if 0
+      #if 1
       obj->Set(env->domain_string(), env->domain_array()->Get(0));
 
       #elif 0

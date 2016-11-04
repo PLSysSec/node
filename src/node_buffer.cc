@@ -482,7 +482,7 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
 
 #if 0
   return safeV8::With(isolate, args[0], args[1])
-    .ToVal([&] (Local<String> stringBuf, Local<String> encoding) {
+    .OnVal([&] (Local<String> stringBuf, Local<String> encoding) {
 
       enum encoding enc = ParseEncoding(args.GetIsolate(), encoding, UTF8);
       Local<Object> buf;

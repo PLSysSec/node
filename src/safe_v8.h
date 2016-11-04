@@ -340,7 +340,7 @@ template <typename T>
 using return_argument = decltype(return_argument_helper(std::declval<T>()));
 
 /* Base class from which the various output classes derive from */
-class SafeV8Promise_GetOutput
+class SafeV8Promise_Base
 {
 protected:
   Local<Value> err;
@@ -357,7 +357,7 @@ public:
 };
 
 /* Class which handles the single output value case */
-class SafeV8Promise_GetOutput1 : public SafeV8Promise_GetOutput
+class SafeV8Promise_GetOutput1 : public SafeV8Promise_Base
 {
 private:
   Isolate* isolate;
@@ -367,7 +367,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput1>::type ToVal(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput1>::type OnVal(F func)
   {
     first_argument<F> obj1;
     if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
@@ -380,12 +380,12 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput1>::type ToVal(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput1>::type OnVal(F func)
   {
     first_argument<F> obj1;
     if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
     {
-      SafeV8Promise_GetOutput nestedCall = func(obj1);
+      SafeV8Promise_Base nestedCall = func(obj1);
       exceptionThrown = nestedCall.GetIsExceptionThrown();
       err = nestedCall.GetException();
     }
@@ -405,11 +405,11 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput1>::type OnErr(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput1>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
-      SafeV8Promise_GetOutput nestedCall = func(err);
+      SafeV8Promise_Base nestedCall = func(err);
       exceptionThrown = nestedCall.GetIsExceptionThrown();
       err = nestedCall.GetException();
     }
@@ -418,7 +418,7 @@ public:
 };
 
 /* Class which handles 2 output value case */
-class SafeV8Promise_GetOutput2 : public SafeV8Promise_GetOutput
+class SafeV8Promise_GetOutput2 : public SafeV8Promise_Base
 {
 private:
   Isolate* isolate;
@@ -429,7 +429,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput2>::type ToVal(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput2>::type OnVal(F func)
   {
     first_argument<F> obj1;
     second_argument<F> obj2;
@@ -446,7 +446,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput2>::type ToVal(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput2>::type OnVal(F func)
   {
     first_argument<F> obj1;
     second_argument<F> obj2;
@@ -454,7 +454,7 @@ public:
     {
       if (SafeV8ConvertVal(isolate, v2, obj2, err, exceptionThrown))
       {
-        SafeV8Promise_GetOutput nestedCall = func(obj1, obj2);
+        SafeV8Promise_Base nestedCall = func(obj1, obj2);
         exceptionThrown = nestedCall.GetIsExceptionThrown();
         err = nestedCall.GetException();
       }
@@ -475,11 +475,11 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput2>::type OnErr(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput2>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
-      SafeV8Promise_GetOutput nestedCall = func(err);
+      SafeV8Promise_Base nestedCall = func(err);
       exceptionThrown = nestedCall.GetIsExceptionThrown();
       err = nestedCall.GetException();
     }
@@ -488,7 +488,7 @@ public:
 };
 
 /* Class which handles 3 output value case */
-class SafeV8Promise_GetOutput3 : public SafeV8Promise_GetOutput
+class SafeV8Promise_GetOutput3 : public SafeV8Promise_Base
 {
 private:
   Isolate* isolate;
@@ -500,7 +500,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput3>::type ToVal(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput3>::type OnVal(F func)
   {
     first_argument<F> obj1;
     second_argument<F> obj2;
@@ -521,7 +521,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput3>::type ToVal(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput3>::type OnVal(F func)
   {
     first_argument<F> obj1;
     second_argument<F> obj2;
@@ -532,7 +532,7 @@ public:
       {
         if (SafeV8ConvertVal(isolate, v3, obj3, err, exceptionThrown))
         {
-          SafeV8Promise_GetOutput nestedCall = func(obj1, obj2, obj3);
+          SafeV8Promise_Base nestedCall = func(obj1, obj2, obj3);
           exceptionThrown = nestedCall.GetIsExceptionThrown();
           err = nestedCall.GetException();
         }
@@ -554,11 +554,11 @@ public:
 
   //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_GetOutput, return_argument<F>>::value, SafeV8Promise_GetOutput3>::type OnErr(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput3>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
-      SafeV8Promise_GetOutput nestedCall = func(err);
+      SafeV8Promise_Base nestedCall = func(err);
       exceptionThrown = nestedCall.GetIsExceptionThrown();
       err = nestedCall.GetException();
     }
@@ -602,7 +602,7 @@ bool SafeV8Get(Local<Context> context, ObjectType object, KeyType key, Local<Val
 }
 
 template<typename ObjectType, typename KeyType>
-class SafeV8_GetterOutput : public SafeV8Promise_GetOutput
+class SafeV8_GetterOutput : public SafeV8Promise_Base
 {
 private:
   Local<Context> context;
@@ -613,7 +613,7 @@ public:
 
   //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
   template<typename F>
-  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8_GetterOutput>::type ToVal(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8_GetterOutput>::type OnVal(F func)
   {
     Local<Value> outVal;
     if (SafeV8Get(context, object, key, outVal, err, exceptionThrown))
@@ -624,13 +624,42 @@ public:
     return *this;
   }
 
+  //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
   template<typename F>
-  void OnErr(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8_GetterOutput>::type OnVal(F func)
+  {
+    Local<Value> outVal;
+    if (SafeV8Get(context, object, key, outVal, err, exceptionThrown))
+    {
+      SafeV8Promise_Base nestedCall = func(outVal);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+    }
+
+    return *this;
+  }
+
+  //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
+  template<typename F>
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
       func(err);
     }
+  }
+
+  //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8_GetterOutput>::type OnErr(F func)
+  {
+    if (exceptionThrown)
+    {
+      SafeV8Promise_Base nestedCall = func(err);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+    }
+    return *this;
   }
 };
 
@@ -661,13 +690,15 @@ bool SafeV8Set(Local<Context> context, ObjectType object, KeyType key, Local<Val
 }
 
 template<typename ObjectType, typename KeyType>
-class SafeV8_SetterOutput : public SafeV8Promise_GetOutput
+class SafeV8_SetterOutput : public SafeV8Promise_Base
 {
+private:
+  Local<Context> context;
+  ObjectType object;
+  KeyType key;
+  Local<Value> val;
 public:
-  V8_WARN_UNUSED_RESULT SafeV8_SetterOutput(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
-  {
-    SafeV8Set(context, object, key, val, err, exceptionThrown);
-  }
+  SafeV8_SetterOutput(Local<Context> _context, ObjectType _object, KeyType _key, Local<Value> _val) : context(_context), object(_object), key(_key), val(_val) {}
 
   V8_WARN_UNUSED_RESULT SafeV8_SetterOutput(Local<Value> exception)
   {
@@ -675,16 +706,55 @@ public:
     err = exception;
   }
 
+  //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
   template<typename F>
-  void OnErr(F func)
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8_SetterOutput>::type OnVal(F func)
+  {
+    if (SafeV8Set(context, object, key, val, err, exceptionThrown))
+    {
+      func(outVal);
+    }
+
+    return *this;
+  }
+
+  //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8_SetterOutput>::type OnVal(F func)
+  {
+    if (SafeV8Set(context, object, key, val, err, exceptionThrown))
+    {
+      SafeV8Promise_Base nestedCall = func(outVal);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+    }
+
+    return *this;
+  }
+
+  //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
+  template<typename F>
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
   {
     if (exceptionThrown)
     {
       func(err);
     }
   }
-};
 
+  //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8_SetterOutput>::type OnErr(F func)
+  {
+    if (exceptionThrown)
+    {
+      SafeV8Promise_Base nestedCall = func(err);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+    }
+    return *this;
+  }
+};
 
 template<typename ObjectType, typename KeyType>
 V8_WARN_UNUSED_RESULT SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
@@ -697,7 +767,7 @@ V8_WARN_UNUSED_RESULT SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Co
 {
   SafeV8_SetterOutput<ObjectType, KeyType>* ptr;
 
-  val.ToVal([&](Local<Value> result) {
+  val.OnVal([&](Local<Value> result) {
     ptr = new SafeV8_SetterOutput<ObjectType, KeyType>(context, object, key, result);
   }).OnErr([&](Local<Value> exception) {
     ptr = new SafeV8_SetterOutput<ObjectType, KeyType>(exception);

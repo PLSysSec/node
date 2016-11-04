@@ -5352,10 +5352,8 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
         failed = true;
       });
 
-      if (failed)
-      {
-        goto err;
-      }
+      if (failed) goto err;
+
       #endif
     }
     uv_queue_work(env->event_loop(),

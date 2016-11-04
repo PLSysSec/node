@@ -12,6 +12,7 @@
 #include "string_bytes.h"
 #include "util.h"
 #include "util-inl.h"
+#include "safe_v8.h"
 #include "v8.h"
 // CNNIC Hash WhiteList is taken from
 // https://hg.mozilla.org/mozilla-central/raw-file/98820360ab66/security/
@@ -5225,6 +5226,7 @@ void EIO_PBKDF2After(uv_work_t* work_req, int status) {
 
 void PBKDF2(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  Local<Context> context = env->context();
 
   const EVP_MD* digest = nullptr;
   const char* type_error = nullptr;
@@ -5317,7 +5319,45 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
     obj->Set(env->ondone_string(), args[5]);
 
     if (env->in_domain())
+    {
+      #if 0
       obj->Set(env->domain_string(), env->domain_array()->Get(0));
+
+      #elif 0
+      Local<Value> sVal;
+      bool failed = false;
+
+      safeV8::GetField(context, (env->domain_array()), 0)
+      .ToVal([&](Local<Value> val){
+        safeV8::SetField(context, obj, env->domain_string(), val)
+        .OnErr([&](Local<Value> exception) {
+          failed = true;
+        });
+      })
+      .OnErr([&](Local<Value> exception) {
+        failed = true;
+      });
+
+      if (failed)
+      {
+        goto err;
+      }
+      #else
+
+      bool failed = false;
+      auto val = safeV8::GetField(context, (env->domain_array()), 0);
+
+      safeV8::SetField(context, obj, env->domain_string(), val)
+      .OnErr([&](Local<Value> exception){
+        failed = true;
+      });
+
+      if (failed)
+      {
+        goto err;
+      }
+      #endif
+    }
     uv_queue_work(env->event_loop(),
                   req->work_req(),
                   EIO_PBKDF2,

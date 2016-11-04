@@ -579,8 +579,136 @@ V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput2 With(Isolate* isolate, Local<Valu
 
 V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput3 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third)
 {
-	return SafeV8Promise_GetOutput3(isolate, first, second, third);
+  return SafeV8Promise_GetOutput3(isolate, first, second, third);
 }
+
+//////// Get API ////////////
+
+template<typename ObjectType, typename KeyType>
+bool SafeV8Get(Local<Context> context, ObjectType object, KeyType key, Local<Value>& outVal, Local<Value>& err, bool& hasError) {
+  if (object->Get(context, key).ToLocal(&outVal))
+  {
+    hasError = false;
+    return true;
+  }
+  else
+  {
+    MaybeLocal<String> mErrMsg =
+      v8::String::NewFromUtf8(context->GetIsolate(), "Get failed", v8::String::NewStringType::kNormalString);
+    err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+    hasError = true;
+    return false;
+  }
+}
+
+template<typename ObjectType, typename KeyType>
+class SafeV8_GetterOutput : public SafeV8Promise_GetOutput
+{
+private:
+  Local<Context> context;
+  ObjectType object;
+  KeyType key;
+public:
+  SafeV8_GetterOutput(Local<Context> _context, ObjectType _object, KeyType _key) : context(_context), object(_object), key(_key){}
+
+  //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8_GetterOutput>::type ToVal(F func)
+  {
+    Local<Value> outVal;
+    if (SafeV8Get(context, object, key, outVal, err, exceptionThrown))
+    {
+      func(outVal);
+    }
+
+    return *this;
+  }
+
+  template<typename F>
+  void OnErr(F func)
+  {
+    if (exceptionThrown)
+    {
+      func(err);
+    }
+  }
+};
+
+template<typename ObjectType, typename KeyType>
+V8_WARN_UNUSED_RESULT SafeV8_GetterOutput<ObjectType, KeyType> GetField(Local<Context> context, ObjectType object, KeyType key)
+{
+  return SafeV8_GetterOutput<ObjectType, KeyType>(context, object, key);
+}
+
+
+//////// Set API ////////////
+
+template<typename ObjectType, typename KeyType>
+bool SafeV8Set(Local<Context> context, ObjectType object, KeyType key, Local<Value> val, Local<Value>& err, bool& hasError) {
+  if (object->Set(context, key, val).FromMaybe(false))
+  {
+    hasError = false;
+    return true;
+  }
+  else
+  {
+    MaybeLocal<String> mErrMsg =
+      v8::String::NewFromUtf8(context->GetIsolate(), "Set failed", v8::String::NewStringType::kNormalString);
+    err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+    hasError = true;
+    return false;
+  }
+}
+
+template<typename ObjectType, typename KeyType>
+class SafeV8_SetterOutput : public SafeV8Promise_GetOutput
+{
+public:
+  V8_WARN_UNUSED_RESULT SafeV8_SetterOutput(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
+  {
+    SafeV8Set(context, object, key, val, err, exceptionThrown);
+  }
+
+  V8_WARN_UNUSED_RESULT SafeV8_SetterOutput(Local<Value> exception)
+  {
+    exceptionThrown = true;
+    err = exception;
+  }
+
+  template<typename F>
+  void OnErr(F func)
+  {
+    if (exceptionThrown)
+    {
+      func(err);
+    }
+  }
+};
+
+
+template<typename ObjectType, typename KeyType>
+V8_WARN_UNUSED_RESULT SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
+{
+  return SafeV8_SetterOutput<ObjectType, KeyType>(context, object, key, val);
+}
+
+template<typename ObjectType, typename KeyType, typename GetObjectType, typename GetKeyType>
+V8_WARN_UNUSED_RESULT SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, SafeV8_GetterOutput<GetObjectType, GetKeyType> val)
+{
+  SafeV8_SetterOutput<ObjectType, KeyType>* ptr;
+
+  val.ToVal([&](Local<Value> result) {
+    ptr = new SafeV8_SetterOutput<ObjectType, KeyType>(context, object, key, result);
+  }).OnErr([&](Local<Value> exception) {
+    ptr = new SafeV8_SetterOutput<ObjectType, KeyType>(exception);
+  });
+
+  SafeV8_SetterOutput<ObjectType, KeyType> ret(*ptr);
+  return ret;
+}
+
+
+
 
 }
 #endif  // SAFE_V8_H_

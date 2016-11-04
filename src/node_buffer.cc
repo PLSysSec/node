@@ -1,7 +1,6 @@
 #include "node.h"
 #include "node_buffer.h"
 
-#include "safe_v8.h"
 #include "env.h"
 #include "env-inl.h"
 #include "string_bytes.h"
@@ -434,7 +433,7 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
 
   Isolate* isolate = args.GetIsolate();
 
-#if 0
+#if 1
   CHECK(args[0]->IsString());
   CHECK(args[1]->IsString());
 
@@ -481,7 +480,7 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(buf);
 #endif
 
-#if 1
+#if 0
   return safeV8::With(isolate, args[0], args[1])
     .ToVal([&] (Local<String> stringBuf, Local<String> encoding) {
 
@@ -635,7 +634,8 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   SPREAD_ARG(args[0], ts_obj);
 
-  safeV8::uint32_tVal(env->isolate(), args[2]).onVal([&] (size_t start) {
+  //safeV8::uint32_tVal(env->isolate(), args[2]).onVal([&] (size_t start) {
+    size_t start = args[2]->Uint32Value();
     size_t end = args[3]->Uint32Value();
     size_t fill_length = end - start;
     Local<String> str_obj;
@@ -717,10 +717,10 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
     if (in_there < fill_length) {
       memcpy(ptr, ts_obj_data + start, fill_length - in_there);
     }
-  }).onErr([&env] (Local<Value> exception) {
+  /*}).onErr([&env] (Local<Value> exception) {
     env->isolate()->ThrowException(exception);
     return;
-  });
+  });*/
 }
 
 

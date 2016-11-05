@@ -733,7 +733,7 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
 
 #endif
 
-#if B_SAFE_R == 0
+#if 1
 void Fill(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -1029,10 +1029,7 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
 
       args.GetReturnValue().Set(written);
       return safeV8::Done;
-    })
-    .OnErr([&](Local<Value> exception) {
-      return safeV8::Err(isolate, "Argument must be a string", v8::Exception::TypeError);
-    });
+    }, safeV8::V8Err(isolate, "Argument must be a string", v8::Exception::TypeError));
   })
   .OnErr([&](Local<Value> exception) {
     isolate->ThrowException(exception);

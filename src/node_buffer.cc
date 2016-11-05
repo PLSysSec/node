@@ -63,7 +63,7 @@
       const size_t name##_length = name->ByteLength();                            \
       char* const name##_data =                                                   \
           static_cast<char*>(name##_c.Data()) + name##_offset;                    \
-      if (name##_length > 0 && name##_data != nullptr){                           \
+      if (name##_length > 0 && name##_data == nullptr){                           \
         return safeV8::Err(isolate, "SPREAD ARGS FAILED");                        \
       }                                                                           \
       block                                                                       \
@@ -922,8 +922,10 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
 
     return safeV8::With(env->isolate(), args[2], args[3])
-    .OnVal([&](size_t start, size_t end) {
+    .OnVal([&](uint32_t startVal, uint32_t endVal) {
 
+    size_t start = startVal;
+    size_t end = endVal;
     size_t fill_length = end - start;
     THROW_AND_RETURN_IF_OOB_SAFE(isolate, start <= end);
     THROW_AND_RETURN_IF_OOB_SAFE(isolate, fill_length + start <= ts_obj_length);

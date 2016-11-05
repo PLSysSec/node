@@ -733,7 +733,7 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
 
 #endif
 
-#if 1
+#if B_SAFE_R == 0
 void Fill(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -861,13 +861,26 @@ safeV8::SafeV8Promise_Base FillWithBuffer(const FunctionCallbackInfo<Value>& arg
 
 safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& args, Isolate* isolate, char* const ts_obj_data, size_t start, size_t fill_length)
 {
-  return safeV8::With(isolate, args[1])
-    .OnVal([&](uint32_t uint32Val) {
+  bool convertableToString = true;
+  Local<String> str_obj;
 
-    memset(ts_obj_data + start, uint32Val, fill_length);
-  })
-    .OnVal([&](Local<String> str_obj) {
+  safeV8::With(isolate, args[1])
+  .OnVal([&](Local<String> str_obj_val) { str_obj = str_obj_val; })
+  .OnErr([&](Local<Value> exception) { convertableToString = false; });
 
+  if (!convertableToString)
+  {
+    auto uint32Val = safeV8::coerceTouint32_t(isolate, args[1]);
+
+    if (uint32Val.IsError())
+    {
+      return safeV8::Err(isolate, "Could not convert the start and end values to uint32");
+    }
+
+    memset(ts_obj_data + start, uint32Val.UnsafeVal(), fill_length);
+  }
+  else
+  {
     enum encoding enc = ParseEncoding(isolate, args[4], UTF8);
     size_t str_length =
       enc == UTF8 ? str_obj->Utf8Length() :
@@ -910,8 +923,9 @@ safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& a
     }
 
     Fill_Helper(str_length, fill_length, ts_obj_data, start);
-    return safeV8::Done;
-  });
+  }
+
+  return safeV8::Done;
 }
 
 void Fill(const FunctionCallbackInfo<Value>& args) {
@@ -921,11 +935,16 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
 
-    return safeV8::With(env->isolate(), args[2], args[3])
-    .OnVal([&](uint32_t startVal, uint32_t endVal) {
+    auto startVal = safeV8::coerceTouint32_t(isolate, args[2]);
+    auto endVal = safeV8::coerceTouint32_t(isolate, args[3]);
 
-    size_t start = startVal;
-    size_t end = endVal;
+    if (startVal.IsError() || endVal.IsError())
+    {
+      return safeV8::Err(isolate, "Could not convert the start and end values to uint32");
+    }
+
+    size_t start = startVal.UnsafeVal();
+    size_t end = endVal.UnsafeVal();
     size_t fill_length = end - start;
     THROW_AND_RETURN_IF_OOB_SAFE(isolate, start <= end);
     THROW_AND_RETURN_IF_OOB_SAFE(isolate, fill_length + start <= ts_obj_length);
@@ -937,10 +956,8 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
     else {
       return FillWithNoBuffer(args, isolate, ts_obj_data, start, fill_length);
     }
-
-  });
   })
-    .OnErr([&isolate](Local<Value> exception) {
+  .OnErr([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }

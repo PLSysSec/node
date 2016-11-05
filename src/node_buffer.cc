@@ -1923,8 +1923,16 @@ void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
 
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
 
-  return safeV8::With(isolate, args[1], args[2], args[3])
-  .OnVal([&](uint32_t needle, int64_t offset_i64, bool is_forward) {
+  return safeV8::With(isolate, args[2], args[3])
+  .OnVal([&](int64_t offset_i64, bool is_forward) -> safeV8::SafeV8Promise_Base {
+    
+    auto needleVal = safeV8::coerceTouint32_t(isolate, args[1]);
+    if (needleVal.IsError())
+    {
+      return safeV8::Err(isolate, "Could not convert the needle value to uint32");
+    }
+
+    uint32_t needle = needleVal.UnsafeVal();
 
     return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
 

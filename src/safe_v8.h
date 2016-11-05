@@ -434,7 +434,7 @@ public:
       return *this;
     }
     
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -454,7 +454,7 @@ public:
       return *this;
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -510,7 +510,7 @@ public:
       }
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -534,7 +534,7 @@ public:
       }
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -595,7 +595,7 @@ public:
       }
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -623,7 +623,7 @@ public:
       }
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -710,7 +710,7 @@ public:
       return *this;
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -730,7 +730,7 @@ public:
       return *this;
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -814,7 +814,7 @@ public:
       return *this;
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }
@@ -833,7 +833,7 @@ public:
       return *this;
     }
 
-    if (customException.IsEmpty())
+    if (!customException.IsEmpty())
     {
       err = customException;
     }

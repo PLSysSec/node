@@ -853,8 +853,9 @@ safeV8::SafeV8Promise_Base FillWithBuffer(const FunctionCallbackInfo<Value>& arg
 {
   return SPREAD_ARG_SAFE(isolate, args[1], fill_obj, {
     size_t str_length = fill_obj_length;
-  memcpy(ts_obj_data + start, fill_obj_data, MIN(str_length, fill_length));
-  Fill_Helper(str_length, fill_length, ts_obj_data, start);
+    memcpy(ts_obj_data + start, fill_obj_data, MIN(str_length, fill_length));
+    Fill_Helper(str_length, fill_length, ts_obj_data, start);
+    return safeV8::Done;
   });
 }
 
@@ -1403,6 +1404,7 @@ void CompareOffset(const FunctionCallbackInfo<Value> &args) {
         target_end - target_start);
 
       args.GetReturnValue().Set(val);
+      return safeV8::Done;
     });
   })
   .OnErr([&isolate](Local<Value> exception) {
@@ -1447,6 +1449,7 @@ void Compare(const FunctionCallbackInfo<Value> &args) {
                                   obj_a_length, obj_b_length);
 
       args.GetReturnValue().Set(val);
+      return safeV8::Done;
     });
   })
   .OnErr([&isolate](Local<Value> exception) {
@@ -1995,6 +1998,7 @@ void Swap16(const FunctionCallbackInfo<Value>& args) {
   return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
     SwapBytes16(ts_obj_data, ts_obj_length);
     args.GetReturnValue().Set(args[0]);
+    return safeV8::Done;
   })
   .OnErr([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
@@ -2009,6 +2013,7 @@ void Swap32(const FunctionCallbackInfo<Value>& args) {
   return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
     SwapBytes32(ts_obj_data, ts_obj_length);
     args.GetReturnValue().Set(args[0]);
+    return safeV8::Done;
   })
   .OnErr([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
@@ -2023,6 +2028,7 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
     SwapBytes64(ts_obj_data, ts_obj_length);
     args.GetReturnValue().Set(args[0]);
+    return safeV8::Done;
   })
   .OnErr([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);

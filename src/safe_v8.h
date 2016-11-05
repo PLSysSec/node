@@ -143,9 +143,9 @@ namespace safeV8 {
   } \
   \
   MVal<Local<Value>, CType> coerceTo##CType(Isolate* isolate, Local<Value> v) { \
-    Maybe<CType> mv = v->JSType##Value(); \
-    if (mv.isJust()) { \
-      return MVal<Local<Value>, CType>(mv.fromJust()); \
+    Maybe<CType> mv = v->JSType##Value(isolate->GetCurrentContext()); \
+    if (mv.IsJust()) { \
+      return MVal<Local<Value>, CType>(mv.FromJust()); \
     } else { \
       MaybeLocal<String> mErrMsg =  \
         v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString); \

@@ -351,6 +351,12 @@ decltype(return_argument_helper(&F::operator())) return_argument_helper(F);
 template <typename T>
 using return_argument = decltype(return_argument_helper(std::declval<T>()));
 
+class SafeV8Promise_Base;
+
+static SafeV8Promise_Base Err(Local<Value> err);
+static SafeV8Promise_Base Err(Isolate* isolate, char* err);
+static SafeV8Promise_Base Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>));
+
 /* Base class from which the various output classes derive from */
 class SafeV8Promise_Base
 {
@@ -369,9 +375,9 @@ public:
     return exceptionThrown;
   }
 
-  friend static SafeV8Promise_Base Err(Local<Value> err);
-  friend static SafeV8Promise_Base Err(Isolate* isolate, char* err);
-  friend static SafeV8Promise_Base Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>));
+  friend SafeV8Promise_Base Err(Local<Value> err);
+  friend SafeV8Promise_Base Err(Isolate* isolate, char* err);
+  friend SafeV8Promise_Base Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>));
 };
 
 const SafeV8Promise_Base Done;
@@ -757,7 +763,7 @@ public:
   {
     if (SafeV8Set(context, object, key, val, err, exceptionThrown))
     {
-      func(outVal);
+      func();
     }
 
     return *this;
@@ -769,7 +775,7 @@ public:
   {
     if (SafeV8Set(context, object, key, val, err, exceptionThrown))
     {
-      SafeV8Promise_Base nestedCall = func(outVal);
+      SafeV8Promise_Base nestedCall = func();
       exceptionThrown = nestedCall.GetIsExceptionThrown();
       err = nestedCall.GetException();
     }

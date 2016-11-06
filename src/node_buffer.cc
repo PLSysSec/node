@@ -2105,8 +2105,8 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
   }
 
 }
-#endif
-#if B_SAFE_R == 2
+
+#elif B_SAFE_R == 2
 void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = env->isolate();

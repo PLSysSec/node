@@ -801,13 +801,12 @@ bool SafeV8Set(Local<Context> context, ObjectType object, KeyType key, Local<Val
 template<typename ObjectType, typename KeyType>
 class SafeV8_SetterOutput : public SafeV8Promise_Base
 {
-private:
-  Local<Context> context;
-  ObjectType object;
-  KeyType key;
-  Local<Value> val;
 public:
-  SafeV8_SetterOutput(Local<Context> _context, ObjectType _object, KeyType _key, Local<Value> _val) : context(_context), object(_object), key(_key), val(_val) {}
+
+  SafeV8_SetterOutput(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
+  {
+    SafeV8Set(context, object, key, val, err, exceptionThrown);
+  }
 
   V8_WARN_UNUSED_RESULT SafeV8_SetterOutput(Local<Value> exception)
   {
@@ -819,7 +818,7 @@ public:
   template<typename F>
   V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8_SetterOutput>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
   {
-    if (SafeV8Set(context, object, key, val, err, exceptionThrown))
+    if (!exceptionThrown)
     {
       func();
       return *this;
@@ -836,7 +835,7 @@ public:
   template<typename F>
   V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8_SetterOutput>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
   {
-    if (SafeV8Set(context, object, key, val, err, exceptionThrown))
+    if (!exceptionThrown)
     {
       SafeV8Promise_Base nestedCall = func();
       exceptionThrown = nestedCall.GetIsExceptionThrown();

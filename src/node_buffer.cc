@@ -862,16 +862,11 @@ safeV8::SafeV8Promise_Base FillWithBuffer(const FunctionCallbackInfo<Value>& arg
 safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& args, Isolate* isolate, char* const ts_obj_data, size_t start, size_t fill_length)
 {
   bool convertableToString = true;
-  Local<String> str_obj;
 
-  safeV8::With(isolate, args[1])
-  .OnVal([&](Local<String> str_obj_val) { str_obj = str_obj_val; })
-  .OnErr([&](Local<Value> exception) { convertableToString = false; });
-
-  if (!convertableToString)
+  
+  if (!args[1]->IsString())
   {
     auto uint32Val = safeV8::coerceTouint32_t(isolate, args[1]);
-
     if (uint32Val.IsError())
     {
       return safeV8::Err(isolate, "Could not convert the start and end values to uint32");
@@ -881,6 +876,13 @@ safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& a
   }
   else
   {
+    auto toStringResult = safeV8::toString(isolate, args[1]);
+    if (toStringResult.IsError())
+    {
+      return safeV8::Err(isolate, "Could not convert the argument toString");
+    }
+
+    Local<String> str_obj = toStringResult.UnsafeVal();
     enum encoding enc = ParseEncoding(isolate, args[4], UTF8);
     size_t str_length =
       enc == UTF8 ? str_obj->Utf8Length() :
@@ -1015,38 +1017,44 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
 
   return SPREAD_ARG_SAFE(isolate, args.This(), ts_obj, {
 
-    return safeV8::With(isolate, args[0])
-    .OnVal([&](Local<String> str) {
+    if (!args[0]->IsString())
+      return safeV8::Err(isolate, "Argument must be a string", v8::Exception::TypeError);
 
-      if (encoding == HEX && str->Length() % 2 != 0)
-        return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
+    auto strVal = safeV8::toString(isolate, args[0]);
+    
+    if (strVal.IsError())
+      return safeV8::Err(strVal.UnsafeError());
 
-      size_t offset;
-      size_t max_length;
+    Local<String> str = strVal.UnsafeVal();
 
-      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[1], 0, &offset));
+    if (encoding == HEX && str->Length() % 2 != 0)
+      return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
 
-      if (offset > ts_obj_length)
-        return safeV8::Err(isolate, "Offset is out of bounds", v8::Exception::RangeError);
+    size_t offset;
+    size_t max_length;
 
-      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[2], ts_obj_length - offset, &max_length));
-      max_length = MIN(ts_obj_length - offset, max_length);
+    THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[1], 0, &offset));
 
-      if (max_length == 0) {
-        args.GetReturnValue().Set(0);
-        return safeV8::Done;
-      }
+    if (offset > ts_obj_length)
+      return safeV8::Err(isolate, "Offset is out of bounds", v8::Exception::RangeError);
 
-      uint32_t written = StringBytes::Write(env->isolate(),
-        ts_obj_data + offset,
-        max_length,
-        str,
-        encoding,
-        nullptr);
+    THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[2], ts_obj_length - offset, &max_length));
+    max_length = MIN(ts_obj_length - offset, max_length);
 
-      args.GetReturnValue().Set(written);
+    if (max_length == 0) {
+      args.GetReturnValue().Set(0);
       return safeV8::Done;
-    }, safeV8::V8Err(isolate, "Argument must be a string", v8::Exception::TypeError));
+    }
+
+    uint32_t written = StringBytes::Write(env->isolate(),
+      ts_obj_data + offset,
+      max_length,
+      str,
+      encoding,
+      nullptr);
+
+    args.GetReturnValue().Set(written);
+    return safeV8::Done;
   })
   .OnErr([&](Local<Value> exception) {
     isolate->ThrowException(exception);

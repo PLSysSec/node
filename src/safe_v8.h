@@ -173,7 +173,17 @@ namespace safeV8 {
     }
   }
 
-
+  MVal<Local<Value>, Local<String>> toString(Isolate* isolate, Local<Value> v) {
+    MaybeLocal<String> ret = v->ToString(isolate->GetCurrentContext());
+    if (!ret.IsEmpty()) {
+      return MVal<Local<Value>, Local<String>>(ret.FromMaybe(Local<String>()));
+    } else {
+      MaybeLocal<String> mErrMsg =
+        v8::String::NewFromUtf8(isolate, "Could not convert to string", v8::String::NewStringType::kNormalString);
+      Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+      return MVal<Local<Value>, Local<String>>(err);
+    }
+  }
 #define MARSHALL(mval) \
   do { \
     auto __safe_v8_local_mv = (mval); \
@@ -387,6 +397,7 @@ static SafeV8Promise_Base Err(Local<Value> err)
   SafeV8Promise_Base e;
   e.exceptionThrown = true;
   e.err = err;
+  return e;
 }
 
 static SafeV8Promise_Base Err(Isolate* isolate, char* err)

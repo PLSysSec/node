@@ -13,6 +13,7 @@
 
 #include <string.h>
 #include <limits.h>
+#include <chrono>
 
 //Code version
 //Default
@@ -2012,7 +2013,6 @@ void Swap32(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 }
 
-
 void Swap64(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
@@ -2067,6 +2067,85 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   });
 }
 #endif
+
+void TestNoOpOriginal(const FunctionCallbackInfo<Value>& args)
+{
+  CHECK(args[0]->IsNumber());
+  Local<Number> ret = args[0].As<Number>();
+  args.GetReturnValue().Set(ret);
+}
+
+void TestNoOpOriginalCorrected(const FunctionCallbackInfo<Value>& args)
+{
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  if (args[0]->IsNumber()) {
+    Local<Number> ret = args[0].As<Number>();
+    args.GetReturnValue().Set(ret);
+  }
+  else {
+    MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString);
+    Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+  }
+}
+
+void TestNoOpPromise(const FunctionCallbackInfo<Value>& args)
+{
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  return safeV8::With(isolate, args[0])
+    .OnVal([&](Local<Number> ret) {
+    args.GetReturnValue().Set(ret);
+  })
+  .OnErr([&](Local<Value> exception) {
+    isolate->ThrowException(safeV8::V8Err(isolate, "Should not be here!!!", v8::Exception::TypeError));
+  });
+}
+
+void CppOverheadTest(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  const uint64_t iterationCount = 100 * 1024 * 1024;
+
+  uint64_t noOpOriginalTicks;
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+    for (uint64_t i = 0; i < iterationCount; i++) {
+      TestNoOpOriginal(args);
+    }
+    auto finish = std::chrono::high_resolution_clock::now();
+    noOpOriginalTicks = std::chrono::duration_cast<std::chrono::nanoseconds> (finish - start).count();
+  }
+
+  uint64_t noOpOriginalCorrectedTicks;
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+    for (uint64_t i = 0; i < iterationCount; i++) {
+      TestNoOpOriginalCorrected(args);
+    }
+    auto finish = std::chrono::high_resolution_clock::now();
+    noOpOriginalCorrectedTicks = std::chrono::duration_cast<std::chrono::nanoseconds> (finish - start).count();
+  }
+
+  uint64_t noOpPromiseTicks;
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+    for (uint64_t i = 0; i < iterationCount; i++) {
+      TestNoOpPromise(args);
+    }
+    auto finish = std::chrono::high_resolution_clock::now();
+    noOpPromiseTicks = std::chrono::duration_cast<std::chrono::nanoseconds> (finish - start).count();
+  }
+
+  char message[1024];
+  sprintf(message, "Execution time : testNoOpOriginal %llu ns, testNoOpOriginalCorrected %llu ns,  testNoOpPromise %llu ns", noOpOriginalTicks, noOpOriginalCorrectedTicks, noOpPromiseTicks);
+  MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, message, v8::String::NewStringType::kNormalString);
+  Local<String> ret = mErrMsg.FromMaybe(Local<String>());
+  args.GetReturnValue().Set(ret);
+}
 
 #if B_SAFE_R == 0
 // pass Buffer object to load prototype methods
@@ -2183,6 +2262,11 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "swap16", Swap16);
   env->SetMethod(target, "swap32", Swap32);
   env->SetMethod(target, "swap64", Swap64);
+
+  env->SetMethod(target, "testNoOpOriginal", TestNoOpOriginal);
+  env->SetMethod(target, "testNoOpOriginalCorrected", TestNoOpOriginalCorrected);
+  env->SetMethod(target, "testNoOpPromise", TestNoOpPromise);
+  env->SetMethod(target, "cppOverheadTest", CppOverheadTest);
 
   target->Set(env->context(),
               FIXED_ONE_BYTE_STRING(env->isolate(), "kMaxLength"),

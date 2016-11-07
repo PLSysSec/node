@@ -24,17 +24,28 @@ function testNoOpPromise()
 	}
 }
 
+
 var ret = suite.add("testNoOpOriginal", testNoOpOriginal).
 add("testNoOpOriginalCorrected", testNoOpOriginalCorrected).
 add("testNoOpPromise", testNoOpPromise).
-run({ 'minSamples': 10 });
+on('start', function(){
+	process.stdout.write("Running... ");
+}).
+on('cycle', function(){
+	process.stdout.write("... ");
+}).
+on('complete', function(arg){
+	console.info("Done");
 
-for(var i = 0; i <= 2; i++){
-	var str = ret[i].name + "\n"
-	 	+ "Mean: " + ret[i].stats.mean + " +- " + ret[i].stats.rme + "%" + "\n"
-	 	+ "Deviation: " + ret[i].stats.deviation + "\n"
-	 	+ "Time Period: " + ret[i].times.period + " sec" + "\n"
-	;
-
-	console.info(str);
-}
+	for(var i = 0; i <= 2; i++){
+		var str = arg.currentTarget[i].name + "\n"
+		 	+ "Mean: " + arg.currentTarget[i].stats.mean + " +- " + arg.currentTarget[i].stats.rme + "%" + "\n"
+		 	+ "Deviation: " + arg.currentTarget[i].stats.deviation + "\n"
+		;
+		console.info(str);
+	}
+}).
+run({
+	'async' : true,
+	'minSamples': 10
+});

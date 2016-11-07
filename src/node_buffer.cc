@@ -2087,6 +2087,7 @@ void TestNoOpOriginalCorrected(const FunctionCallbackInfo<Value>& args)
   else {
     MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString);
     Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+    isolate->ThrowException(err);
   }
 }
 

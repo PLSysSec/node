@@ -137,8 +137,8 @@ static void GetHiddenValue(const FunctionCallbackInfo<Value>& args) {
       auto maybe_value = obj->GetPrivate(env->context(), private_symbol);
       args.GetReturnValue().Set(maybe_value.ToLocalChecked());
 
-    });
-  })
+    }, safeV8::V8Err(isolate, "index must be an uint32", v8::Exception::TypeError));
+  }, safeV8::V8Err(isolate, "obj must be an object", v8::Exception::TypeError))
   .OnErr([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });

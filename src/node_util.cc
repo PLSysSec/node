@@ -175,7 +175,10 @@ static void SetHiddenValue(const FunctionCallbackInfo<Value>& args) {
   v8::Isolate* isolate = env->isolate();
 
   return safeV8::With(isolate, args[0])
-  .OnVal([&](Local<Object> obj) {
+  .OnVal([&](Local<Object> obj) -> safeV8::SafeV8Promise_Base {
+
+    if (!args[1]->IsUint32())
+      return safeV8::Err(isolate, "index must be an uint32", v8::Exception::TypeError);
 
     return safeV8::WithCoerce(isolate, args[1])
       .OnVal([&](uint32_t index) {
@@ -184,8 +187,8 @@ static void SetHiddenValue(const FunctionCallbackInfo<Value>& args) {
       auto maybe_value = obj->SetPrivate(env->context(), private_symbol, args[2]);
       args.GetReturnValue().Set(maybe_value.FromJust());
 
-    });
-  })
+    }, safeV8::V8Err(isolate, "index must be an uint32", v8::Exception::TypeError));
+  }, safeV8::V8Err(isolate, "obj must be an object", v8::Exception::TypeError))
   .OnErr([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });

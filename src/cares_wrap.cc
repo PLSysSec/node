@@ -20,11 +20,11 @@
 
 //Code version
 //Default
-//#define B_SAFE_R 0
+#define B_SAFE_R 0
 //New Macro
 //#define B_SAFE_R 1
 //With Api
-#define B_SAFE_R 2
+//#define B_SAFE_R 2
 
 #if defined(__ANDROID__) || \
     defined(__MINGW32__) || \

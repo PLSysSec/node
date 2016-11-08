@@ -963,6 +963,7 @@ static void Query(const FunctionCallbackInfo<Value>& args) {
 template <class Wrap>
 static void Query(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
 
   if (args.IsConstructCall())
   {

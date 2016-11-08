@@ -178,7 +178,7 @@ static void SetHiddenValue(const FunctionCallbackInfo<Value>& args) {
       .OnVal([&](uint32_t index) {
 
       auto private_symbol = IndexToPrivateSymbol(env, index);
-      auto maybe_value = obj->SetPrivate(env->context(), private_symbol);
+      auto maybe_value = obj->SetPrivate(env->context(), private_symbol, args[2]);
       args.GetReturnValue().Set(maybe_value.FromJust());
 
     });

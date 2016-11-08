@@ -81,16 +81,7 @@ namespace safeV8 {
 
 
 #define DEFINE_TY_VAL(Type) \
-  MVal<Local<Value>, Local<Type>> Type##Val(Isolate* isolate, Local<Value> v) { \
-    if (v->Is##Type()) { \
-      return MVal<Local<Value>, Local<Type>>(v.As<Type>()); \
-    } else { \
-      MaybeLocal<String> mErrMsg =  \
-        v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString); \
-      Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked()); \
-      return MVal<Local<Value>, Local<Type>>(err); \
-    } \
-  }
+  MVal<Local<Value>, Local<Type>> Type##Val(Isolate* isolate, Local<Value> v);
 
 #define TYPE_LIST(V)   \
   V(Array)             \
@@ -131,59 +122,19 @@ namespace safeV8 {
 #undef DEFINE_TY_VAL
 
 #define DEFINE_CTY_VAL(CType, JSType) \
-  MVal<Local<Value>, CType> CType##Val(Isolate* isolate, Local<Value> v) { \
-    if (v->Is##JSType()) { \
-      return MVal<Local<Value>, CType>(v->JSType##Value()); \
-    } else { \
-      MaybeLocal<String> mErrMsg =  \
-        v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString); \
-      Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked()); \
-      return MVal<Local<Value>, CType>(err); \
-    } \
-  } \
-  \
-  MVal<Local<Value>, CType> coerceTo##CType(Isolate* isolate, Local<Value> v) { \
-    Maybe<CType> mv = v->JSType##Value(isolate->GetCurrentContext()); \
-    if (mv.IsJust()) { \
-      return MVal<Local<Value>, CType>(mv.FromJust()); \
-    } else { \
-      MaybeLocal<String> mErrMsg =  \
-        v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString); \
-      Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked()); \
-      return MVal<Local<Value>, CType>(err); \
-    } \
-  }
+  MVal<Local<Value>, CType> CType##Val(Isolate* isolate, Local<Value> v); \
+  MVal<Local<Value>, CType> coerceTo##CType(Isolate* isolate, Local<Value> v);
 
   DEFINE_CTY_VAL(bool, Boolean)
-  DEFINE_CTY_VAL(double, Number)
-  DEFINE_CTY_VAL(uint32_t, Uint32)
-  DEFINE_CTY_VAL(int32_t, Int32)
+    DEFINE_CTY_VAL(double, Number)
+    DEFINE_CTY_VAL(uint32_t, Uint32)
+    DEFINE_CTY_VAL(int32_t, Int32)
 #undef DEFINE_CTY_VAL
 
-  MVal<Local<Value>, int64_t>
-  int64_tVal(Isolate* isolate, Local<Value> v) {
-    int64_t num;
-    if (v->IsNumber() && v->IntegerValue(isolate->GetCurrentContext()).To(&num)) {
-      return MVal<Local<Value>, int64_t>(num);
-    } else {
-      MaybeLocal<String> mErrMsg =
-        v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString);
-      Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
-      return MVal<Local<Value>, int64_t>(err);
-    }
-  }
+  MVal<Local<Value>, int64_t> int64_tVal(Isolate* isolate, Local<Value> v);
 
-  MVal<Local<Value>, Local<String>> toString(Isolate* isolate, Local<Value> v) {
-    MaybeLocal<String> ret = v->ToString(isolate->GetCurrentContext());
-    if (!ret.IsEmpty()) {
-      return MVal<Local<Value>, Local<String>>(ret.FromMaybe(Local<String>()));
-    } else {
-      MaybeLocal<String> mErrMsg =
-        v8::String::NewFromUtf8(isolate, "Could not convert to string", v8::String::NewStringType::kNormalString);
-      Local<Value> err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
-      return MVal<Local<Value>, Local<String>>(err);
-    }
-  }
+  MVal<Local<Value>, Local<String>> toString(Isolate* isolate, Local<Value> v);
+
 #define MARSHALL(mval) \
   do { \
     auto __safe_v8_local_mv = (mval); \
@@ -201,22 +152,10 @@ namespace safeV8 {
     } \
   } while(0);
 
-////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////////
 
 #define DEFINE_TY_VAL(Type) \
-  bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, Local<Type>& outVal, Local<Value>& err, bool& hasError) { \
-    if (v->Is##Type()) { \
-      outVal = v.As<Type>(); \
-      hasError = false; \
-      return true; \
-    } else { \
-      MaybeLocal<String> mErrMsg =  \
-        v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString); \
-      err = v8::Exception::TypeError(mErrMsg.ToLocalChecked()); \
-      hasError = true; \
-      return false; \
-    } \
-  }
+  bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, Local<Type>& outVal, Local<Value>& err, bool& hasError);
 
 #define TYPE_LIST(V)   \
   V(Array)             \
@@ -251,25 +190,14 @@ namespace safeV8 {
   V(Uint8Array)        \
   V(Uint8ClampedArray)
 
-TYPE_LIST(DEFINE_TY_VAL);
+  TYPE_LIST(DEFINE_TY_VAL);
 
 #undef TYPE_LIST
 #undef DEFINE_TY_VAL
 
-#define DEFINE_CTY_VAL(CType, JSType) \
-  bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, CType& outVal, Local<Value>& err, bool& hasError) { \
-    if (v->Is##JSType()) { \
-      outVal = v->JSType##Value(); \
-      hasError = false; \
-      return true; \
-    } else { \
-      MaybeLocal<String> mErrMsg =  \
-        v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString); \
-      err = v8::Exception::TypeError(mErrMsg.ToLocalChecked()); \
-      hasError = true; \
-      return false; \
-    } \
-  }
+#define DEFINE_CTY_VAL(CType, JSType); \
+  bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, CType& outVal, Local<Value>& err, bool& hasError);\
+  bool SafeV8CoerceVal(Isolate* isolate, Local<Value> v, CType& outVal, Local<Value>& err, bool& hasError);
 
 DEFINE_CTY_VAL(bool, Boolean)
 DEFINE_CTY_VAL(double, Number)
@@ -278,19 +206,7 @@ DEFINE_CTY_VAL(int32_t, Int32)
 #undef DEFINE_CTY_VAL
 
 //int64 version
-bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, int64_t& outVal, Local<Value>& err, bool& hasError) {
-  if (v->IsNumber() && v->IntegerValue(isolate->GetCurrentContext()).To(&outVal)) {
-    hasError = false;
-    return true;
-  }
-  else {
-    MaybeLocal<String> mErrMsg =
-      v8::String::NewFromUtf8(isolate, "Invalid type", v8::String::NewStringType::kNormalString);
-    err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
-    hasError = true;
-    return false;
-  }
-}
+bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, int64_t& outVal, Local<Value>& err, bool& hasError);
 
 
 /* Returns the first argument type of a given lambda */
@@ -363,9 +279,9 @@ using return_argument = decltype(return_argument_helper(std::declval<T>()));
 
 class SafeV8Promise_Base;
 
-static SafeV8Promise_Base Err(Local<Value> err);
-static SafeV8Promise_Base Err(Isolate* isolate, char* err);
-static SafeV8Promise_Base Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>));
+SafeV8Promise_Base Err(Local<Value> err);
+SafeV8Promise_Base Err(Isolate* isolate, char* err);
+SafeV8Promise_Base Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>));
 
 /* Base class from which the various output classes derive from */
 class SafeV8Promise_Base
@@ -392,38 +308,7 @@ public:
 
 const SafeV8Promise_Base Done;
 
-static SafeV8Promise_Base Err(Local<Value> err)
-{
-  SafeV8Promise_Base e;
-  e.exceptionThrown = true;
-  e.err = err;
-  return e;
-}
-
-static SafeV8Promise_Base Err(Isolate* isolate, char* err)
-{
-  SafeV8Promise_Base e;
-  e.exceptionThrown = true;
-  MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, err, v8::String::NewStringType::kNormalString);
-  e.err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
-  return e;
-}
-
-static SafeV8Promise_Base Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>))
-{
-  SafeV8Promise_Base e;
-  e.exceptionThrown = true;
-  MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, err, v8::String::NewStringType::kNormalString);
-  e.err = errorType(mErrMsg.ToLocalChecked());
-  return e;
-}
-
-static v8::Local<v8::Value> V8Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>))
-{
-  MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, err, v8::String::NewStringType::kNormalString);
-  auto ret = errorType(mErrMsg.ToLocalChecked());
-  return ret;
-}
+v8::Local<v8::Value> V8Err(Isolate* isolate, char* err, v8::Local<v8::Value>(*errorType)(v8::Local<v8::String>));
 
 /* Class which handles the single output value case */
 class SafeV8Promise_GetOutput1 : public SafeV8Promise_Base
@@ -666,20 +551,11 @@ public:
 };
 
 /* Entry point to users who want to use the SafeV8 api api */
-V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput1 With(Isolate* isolate, Local<Value> first)
-{
-  return SafeV8Promise_GetOutput1(isolate, first);
-}
+V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput1 With(Isolate* isolate, Local<Value> first);
 
-V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput2 With(Isolate* isolate, Local<Value> first, Local<Value> second)
-{
-  return SafeV8Promise_GetOutput2(isolate, first, second);
-}
+V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput2 With(Isolate* isolate, Local<Value> first, Local<Value> second);
 
-V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput3 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third)
-{
-  return SafeV8Promise_GetOutput3(isolate, first, second, third);
-}
+V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput3 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third);
 
 //////// Get API ////////////
 
@@ -896,7 +772,78 @@ V8_WARN_UNUSED_RESULT SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Co
 }
 
 
+////////////////////////////////////////////////
 
+class SafeV8Promise_GetOutput_Coerce1 : public SafeV8Promise_Base
+{
+private:
+  Isolate* isolate;
+  Local<Value> v1;
+public:
+  SafeV8Promise_GetOutput_Coerce1(Isolate* _isolate, Local<Value> _v1) : v1(_v1), isolate(_isolate) {}
 
+  //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput_Coerce1>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+  {
+    first_argument<F> obj1;
+    if (SafeV8CoerceVal(isolate, v1, obj1, err, exceptionThrown))
+    {
+      func(obj1);
+      return *this;
+    }
+
+    if (!customException.IsEmpty())
+    {
+      err = customException;
+    }
+    return *this;
+  }
+
+  //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput_Coerce1>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+  {
+    first_argument<F> obj1;
+    if (SafeV8CoerceVal(isolate, v1, obj1, err, exceptionThrown))
+    {
+      SafeV8Promise_Base nestedCall = func(obj1);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+      return *this;
+    }
+
+    if (!customException.IsEmpty())
+    {
+      err = customException;
+    }
+    return *this;
+  }
+
+  //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
+  template<typename F>
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
+  {
+    if (exceptionThrown)
+    {
+      func(err);
+    }
+  }
+
+  //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput_Coerce1>::type OnErr(F func)
+  {
+    if (exceptionThrown)
+    {
+      SafeV8Promise_Base nestedCall = func(err);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+    }
+    return *this;
+  }
+};
+
+V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput_Coerce1 WithCoerce(Isolate* isolate, Local<Value> first);
 }
 #endif  // SAFE_V8_H_

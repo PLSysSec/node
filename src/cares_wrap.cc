@@ -16,6 +16,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "safe_v8.h"
+
+//Code version
+//Default
+//#define B_SAFE_R 0
+//New Macro
+//#define B_SAFE_R 1
+//With Api
+#define B_SAFE_R 2
+
 #if defined(__ANDROID__) || \
     defined(__MINGW32__) || \
     defined(__OpenBSD__) || \
@@ -926,6 +936,7 @@ class GetHostByNameWrap: public QueryWrap {
   }
 };
 
+#if B_SAFE_R == 0
 
 template <class Wrap>
 static void Query(const FunctionCallbackInfo<Value>& args) {
@@ -947,7 +958,34 @@ static void Query(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(err);
 }
 
+#elif B_SAFE_R == 2
 
+template <class Wrap>
+static void Query(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+
+  if (args.IsConstructCall())
+  {
+    env->ThrowTypeError("Construct call");
+  }
+
+  return safeV8::With(isolate, args[0], args[1])
+  .OnVal([&](Local<Object> req_wrap_obj, Local<String> string) {
+
+    Wrap* wrap = new Wrap(env, req_wrap_obj);
+
+    node::Utf8Value name(env->isolate(), string);
+    int err = wrap->Send(*name);
+    if (err)
+      delete wrap;
+
+    args.GetReturnValue().Set(err);
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+#endif
 void AfterGetAddrInfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {
   GetAddrInfoReqWrap* req_wrap = static_cast<GetAddrInfoReqWrap*>(req->data);
   Environment* env = req_wrap->env();
@@ -1109,6 +1147,8 @@ static void IsIPv6(const FunctionCallbackInfo<Value>& args) {
   }
 }
 
+#if B_SAFE_R == 0
+
 static void GetAddrInfo(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -1144,11 +1184,11 @@ static void GetAddrInfo(const FunctionCallbackInfo<Value>& args) {
   hints.ai_flags = flags;
 
   int err = uv_getaddrinfo(env->event_loop(),
-                           req_wrap->req(),
-                           AfterGetAddrInfo,
-                           *hostname,
-                           nullptr,
-                           &hints);
+    req_wrap->req(),
+    AfterGetAddrInfo,
+    *hostname,
+    nullptr,
+    &hints);
   req_wrap->Dispatched();
   if (err)
     delete req_wrap;
@@ -1156,6 +1196,69 @@ static void GetAddrInfo(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(err);
 }
 
+#elif B_SAFE_R == 2
+static void GetAddrInfo(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  v8::Isolate* isolate = env->isolate();
+
+  return safeV8::With(isolate, args[0], args[1])
+  .OnVal([&](Local<Object> req_wrap_obj, Local<String> stringVal) {
+
+    node::Utf8Value hostname(env->isolate(), stringVal);
+
+    return safeV8::WithCoerce(isolate, args[2])
+      .OnVal([&](int32_t switchValue) {
+
+      int32_t flags;
+      safeV8::WithCoerce(isolate, args[3])
+        .OnVal([&flags](int32_t flagValue) { flags = flagValue; })
+        .OnErr([&flags](Local<Value> exception) { flags = 0; });
+
+      int family;
+
+      switch (switchValue) {
+      case 0:
+        family = AF_UNSPEC;
+        break;
+      case 4:
+        family = AF_INET;
+        break;
+      case 6:
+        family = AF_INET6;
+        break;
+      default:
+        return safeV8::Err(isolate, "bad address family");
+      }
+
+      GetAddrInfoReqWrap* req_wrap = new GetAddrInfoReqWrap(env, req_wrap_obj);
+
+      struct addrinfo hints;
+      memset(&hints, 0, sizeof(struct addrinfo));
+      hints.ai_family = family;
+      hints.ai_socktype = SOCK_STREAM;
+      hints.ai_flags = flags;
+
+      int err = uv_getaddrinfo(env->event_loop(),
+                               req_wrap->req(),
+                               AfterGetAddrInfo,
+                               *hostname,
+                               nullptr,
+                               &hints);
+      req_wrap->Dispatched();
+      if (err)
+        delete req_wrap;
+
+      args.GetReturnValue().Set(err);
+    });
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
+
+#if B_SAFE_R == 0
 
 static void GetNameInfo(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -1169,15 +1272,15 @@ static void GetNameInfo(const FunctionCallbackInfo<Value>& args) {
   struct sockaddr_storage addr;
 
   CHECK(uv_ip4_addr(*ip, port, reinterpret_cast<sockaddr_in*>(&addr)) == 0 ||
-        uv_ip6_addr(*ip, port, reinterpret_cast<sockaddr_in6*>(&addr)) == 0);
+    uv_ip6_addr(*ip, port, reinterpret_cast<sockaddr_in6*>(&addr)) == 0);
 
   GetNameInfoReqWrap* req_wrap = new GetNameInfoReqWrap(env, req_wrap_obj);
 
   int err = uv_getnameinfo(env->event_loop(),
-                           req_wrap->req(),
-                           AfterGetNameInfo,
-                           (struct sockaddr*)&addr,
-                           NI_NAMEREQD);
+    req_wrap->req(),
+    AfterGetNameInfo,
+    (struct sockaddr*)&addr,
+    NI_NAMEREQD);
   req_wrap->Dispatched();
   if (err)
     delete req_wrap;
@@ -1185,6 +1288,47 @@ static void GetNameInfo(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(err);
 }
 
+#elif B_SAFE_R == 2
+
+static void GetNameInfo(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  v8::Isolate* isolate = env->isolate();
+
+  return safeV8::With(isolate, args[0], args[1])
+    .OnVal([&](Local<Object> req_wrap_obj, Local<String> stringVal) {
+
+    node::Utf8Value ip(env->isolate(), stringVal);
+
+    return safeV8::WithCoerce(isolate, args[2])
+    .OnVal([&](unsigned port) {
+
+      struct sockaddr_storage addr;
+
+      if (!(uv_ip4_addr(*ip, port, reinterpret_cast<sockaddr_in*>(&addr)) == 0 ||
+        uv_ip6_addr(*ip, port, reinterpret_cast<sockaddr_in6*>(&addr)) == 0)) {
+        return safeV8::Err(isolate, "ip is not ipv4 or ipv6");
+      }
+
+      GetNameInfoReqWrap* req_wrap = new GetNameInfoReqWrap(env, req_wrap_obj);
+
+      int err = uv_getnameinfo(env->event_loop(),
+                               req_wrap->req(),
+                               AfterGetNameInfo,
+                               (struct sockaddr*)&addr,
+                               NI_NAMEREQD);
+      req_wrap->Dispatched();
+      if (err)
+        delete req_wrap;
+
+      args.GetReturnValue().Set(err);
+    });
+  })
+    .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
 
 static void GetServers(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);

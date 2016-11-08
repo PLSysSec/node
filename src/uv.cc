@@ -2,6 +2,7 @@
 #include "node.h"
 #include "env.h"
 #include "env-inl.h"
+#include "safe_v8.h"
 
 namespace node {
 namespace uv {
@@ -13,6 +14,15 @@ using v8::Local;
 using v8::Object;
 using v8::Value;
 
+//Code version
+//Default
+//#define B_SAFE_R 0
+//New Macro
+//#define B_SAFE_R 1
+//With Api
+#define B_SAFE_R 2
+
+#if B_SAFE_R == 0
 
 void ErrName(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -23,6 +33,28 @@ void ErrName(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(OneByteString(env->isolate(), name));
 }
 
+#elif B_SAFE_R == 2
+
+void ErrName(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  safeV8::WithCoerce(isolate, args[0])
+  .OnVal([&](int err) {
+
+    if (err >= 0)
+      return env->ThrowError("err >= 0");
+    const char* name = uv_err_name(err);
+    args.GetReturnValue().Set(OneByteString(env->isolate(), name));
+
+  }, safeV8::V8Err(isolate, "Error converting the error code to an int", v8::Exception::TypeError))
+
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
 
 void Initialize(Local<Object> target,
                 Local<Value> unused,

@@ -3,6 +3,7 @@
 #include "v8.h"
 #include "env.h"
 #include "env-inl.h"
+#include "safe_v8.h"
 
 namespace node {
 namespace util {
@@ -17,6 +18,13 @@ using v8::Private;
 using v8::Proxy;
 using v8::Value;
 
+//Code version
+//Default
+//#define B_SAFE_R 0
+//New Macro
+//#define B_SAFE_R 1
+//With Api
+#define B_SAFE_R 2
 
 #define VALUE_METHOD_MAP(V)                                                   \
   V(isArrayBuffer, IsArrayBuffer)                                             \
@@ -41,6 +49,8 @@ using v8::Value;
   VALUE_METHOD_MAP(V)
 #undef V
 
+#if B_SAFE_R == 0
+
 static void GetProxyDetails(const FunctionCallbackInfo<Value>& args) {
   // Return undefined if it's not a proxy.
   if (!args[0]->IsProxy())
@@ -55,6 +65,33 @@ static void GetProxyDetails(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(ret);
 }
 
+#elif B_SAFE_R == 2
+
+static void GetProxyDetails(const FunctionCallbackInfo<Value>& args) {
+
+  Environment* env = Environment::GetCurrent(args);
+  v8::Isolate* isolate = env->isolate();
+  Local<v8::Context> context = isolate->GetCurrentContext();
+
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Proxy> proxy) {
+
+    Local<Array> ret = Array::New(args.GetIsolate(), 2);
+    return safeV8::SetField(context, ret, 0, proxy->GetTarget()).OnVal([&]() {
+      return safeV8::SetField(context, ret, 1, proxy->GetHandler()).OnVal([&]() {
+        args.GetReturnValue().Set(ret);
+      });
+    });
+
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    // Return undefined on error
+  });
+
+}
+
+#endif
+
 inline Local<Private> IndexToPrivateSymbol(Environment* env, uint32_t index) {
 #define V(name, _) &Environment::name,
   static Local<Private> (Environment::*const methods[])() const = {
@@ -64,6 +101,8 @@ inline Local<Private> IndexToPrivateSymbol(Environment* env, uint32_t index) {
   CHECK_LT(index, arraysize(methods));
   return (env->*methods[index])();
 }
+
+#if B_SAFE_R == 0
 
 static void GetHiddenValue(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -82,6 +121,33 @@ static void GetHiddenValue(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(maybe_value.ToLocalChecked());
 }
 
+#elif B_SAFE_R == 2
+
+static void GetHiddenValue(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  v8::Isolate* isolate = env->isolate();
+
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> obj) {
+
+    return safeV8::WithCoerce(isolate, args[1])
+    .OnVal([&](uint32_t index) {
+
+      auto private_symbol = IndexToPrivateSymbol(env, index);
+      auto maybe_value = obj->GetPrivate(env->context(), private_symbol);
+      args.GetReturnValue().Set(maybe_value.ToLocalChecked());
+
+    });
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+
+#endif
+
+#if B_SAFE_R == 0
+
 static void SetHiddenValue(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -99,6 +165,29 @@ static void SetHiddenValue(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(maybe_value.FromJust());
 }
 
+#elif B_SAFE_R == 2
+
+static void SetHiddenValue(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  v8::Isolate* isolate = env->isolate();
+
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> obj) {
+
+    return safeV8::WithCoerce(isolate, args[1])
+      .OnVal([&](uint32_t index) {
+
+      auto private_symbol = IndexToPrivateSymbol(env, index);
+      auto maybe_value = obj->SetPrivate(env->context(), private_symbol);
+      args.GetReturnValue().Set(maybe_value.FromJust());
+
+    });
+  })
+  .OnErr([&isolate](Local<Value> exception) {
+    isolate->ThrowException(exception);
+  });
+}
+#endif
 
 void StartSigintWatchdog(const FunctionCallbackInfo<Value>& args) {
   int ret = SigintWatchdogHelper::GetInstance()->Start();

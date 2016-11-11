@@ -73,7 +73,7 @@ static void GetProxyDetails(const FunctionCallbackInfo<Value>& args) {
   v8::Isolate* isolate = env->isolate();
   Local<v8::Context> context = isolate->GetCurrentContext();
 
-  safeV8::With(isolate, args[0])
+  return safeV8::With(isolate, args[0])
   .OnVal([&](Local<Proxy> proxy) {
 
     Local<Array> ret = Array::New(args.GetIsolate(), 2);

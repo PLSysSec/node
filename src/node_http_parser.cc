@@ -634,22 +634,20 @@ class Parser : public AsyncWrap {
     // Restore stream's callbacks
     if (args.Length() == 1) {
 
-      bool complete = true;
-
       safeV8::With(isolate, args[0])
       .OnVal([&](Local<External> stream_obj) {
         StreamBase* stream = static_cast<StreamBase*>(stream_obj->Value());
-        CHECK_NE(stream, nullptr);
+        if (stream == nullptr)
+        {
+          return safeV8::Err(isolate, "Stream object was null");
+        }
 
         stream->set_alloc_cb(parser->prev_alloc_cb_);
         stream->set_read_cb(parser->prev_read_cb_);
 
       })
-      .OnErr([&complete](Local<Value> exception) {
-        complete = false;
+      .OnErr([&](Local<Value> exception) {
       });
-
-      if (complete) { return; }
     }
 
     parser->prev_alloc_cb_.clear();

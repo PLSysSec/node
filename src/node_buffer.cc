@@ -2148,6 +2148,79 @@ void CppOverheadTest(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(ret);
 }
 
+
+void TestNoOpOriginal_Get(const FunctionCallbackInfo<Value>& args)
+{
+  Local<Object> a1 = args[0].As<Object>();
+  Local<Value> ret = a1->Get(0);
+  args.GetReturnValue().Set(ret);
+}
+
+void TestNoOpOriginalCorrected_GetSlow(const FunctionCallbackInfo<Value>& args)
+{
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  Local<Object> a1 = args[0].As<Object>();
+  MaybeLocal<Value> retM = a1->Get(isolate->GetCurrentContext(), 0);
+  Local<Value> ret;
+
+  if (retM.ToLocal(&ret)) {
+    args.GetReturnValue().Set(ret);
+  }
+  else {
+    isolate->ThrowException(safeV8::V8Err(isolate, "Invalid type", v8::Exception::TypeError));
+  }
+}
+
+void TestNoOpOriginalCorrected_GetFast(const FunctionCallbackInfo<Value>& args)
+{
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  Local<Object> a1 = args[0].As<Object>();
+  Local<Value> ret = a1->Get(0);
+
+  if (!ret.IsEmpty()) {
+    args.GetReturnValue().Set(ret);
+  }
+  else {
+    isolate->ThrowException(safeV8::V8Err(isolate, "Invalid type", v8::Exception::TypeError));
+  }
+}
+
+void TestNoOpPromise_GetSlow(const FunctionCallbackInfo<Value>& args)
+{
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  Local<Object> a1 = args[0].As<Object>();
+
+  return safeV8::GetField(isolate->GetCurrentContext(), a1, 0)
+  .OnVal([&](Local<Value> ret) {
+    args.GetReturnValue().Set(ret);
+  })
+    .OnErr([&](Local<Value> exception) {
+    isolate->ThrowException(safeV8::V8Err(isolate, "Invalid type", v8::Exception::TypeError));
+  });
+}
+
+void TestNoOpPromise_GetFast(const FunctionCallbackInfo<Value>& args)
+{
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  Local<Object> a1 = args[0].As<Object>();
+
+  return safeV8::GetField(isolate->GetCurrentContext(), a1, 0)
+  .OnVal_Fast([&](Local<Value> ret) {
+    args.GetReturnValue().Set(ret);
+  })
+  .OnErr([&](Local<Value> exception) {
+    isolate->ThrowException(safeV8::V8Err(isolate, "Invalid type", v8::Exception::TypeError));
+  });
+}
+
 #if B_SAFE_R == 0
 // pass Buffer object to load prototype methods
 void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
@@ -2268,6 +2341,11 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "testNoOpOriginalCorrected", TestNoOpOriginalCorrected);
   env->SetMethod(target, "testNoOpPromise", TestNoOpPromise);
   env->SetMethod(target, "cppOverheadTest", CppOverheadTest);
+  env->SetMethod(target, "testNoOpOriginal_Get", TestNoOpOriginal_Get);
+  env->SetMethod(target, "testNoOpOriginalCorrected_GetSlow", TestNoOpOriginalCorrected_GetSlow);
+  env->SetMethod(target, "testNoOpOriginalCorrected_GetFast", TestNoOpOriginalCorrected_GetFast);
+  env->SetMethod(target, "testNoOpPromise_GetSlow", TestNoOpPromise_GetSlow);
+  env->SetMethod(target, "testNoOpPromise_GetFast", TestNoOpPromise_GetFast);
 
   target->Set(env->context(),
               FIXED_ONE_BYTE_STRING(env->isolate(), "kMaxLength"),

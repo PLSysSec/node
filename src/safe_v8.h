@@ -577,6 +577,24 @@ bool SafeV8Get(Local<Context> context, ObjectType object, KeyType key, Local<Val
 }
 
 template<typename ObjectType, typename KeyType>
+bool SafeV8Get_Fast(Local<Context> context, ObjectType object, KeyType key, Local<Value>& outVal, Local<Value>& err, bool& hasError) {
+  outVal = object->Get(key);
+  if (!outVal.IsEmpty())
+  {
+    hasError = false;
+    return true;
+  }
+  else
+  {
+    MaybeLocal<String> mErrMsg =
+      v8::String::NewFromUtf8(context->GetIsolate(), "Get failed", v8::String::NewStringType::kNormalString);
+    err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+    hasError = true;
+    return false;
+  }
+}
+
+template<typename ObjectType, typename KeyType>
 class SafeV8_GetterOutput : public SafeV8Promise_Base
 {
 private:
@@ -610,6 +628,44 @@ public:
   {
     Local<Value> outVal;
     if (SafeV8Get(context, object, key, outVal, err, exceptionThrown))
+    {
+      SafeV8Promise_Base nestedCall = func(outVal);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+      return *this;
+    }
+
+    if (!customException.IsEmpty())
+    {
+      err = customException;
+    }
+    return *this;
+  }
+
+  //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8_GetterOutput>::type OnVal_Fast(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+  {
+    Local<Value> outVal;
+    if (SafeV8Get_Fast(context, object, key, outVal, err, exceptionThrown))
+    {
+      func(outVal);
+      return *this;
+    }
+
+    if (!customException.IsEmpty())
+    {
+      err = customException;
+    }
+    return *this;
+  }
+
+  //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8_GetterOutput>::type OnVal_Fast(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+  {
+    Local<Value> outVal;
+    if (SafeV8Get_Fast(context, object, key, outVal, err, exceptionThrown))
     {
       SafeV8Promise_Base nestedCall = func(outVal);
       exceptionThrown = nestedCall.GetIsExceptionThrown();

@@ -39,7 +39,7 @@ void ErrName(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = env->isolate();
 
-  safeV8::WithCoerce(isolate, args[0])
+  return safeV8::WithCoerce(isolate, args[0])
   .OnVal([&](int err) {
 
     if (err >= 0)

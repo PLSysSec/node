@@ -2156,7 +2156,7 @@ void TestNoOpOriginal_Get(const FunctionCallbackInfo<Value>& args)
   args.GetReturnValue().Set(ret);
 }
 
-void TestNoOpOriginalCorrected_GetSlow(const FunctionCallbackInfo<Value>& args)
+void TestNoOpOriginalCorrected_Get(const FunctionCallbackInfo<Value>& args)
 {
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = env->isolate();
@@ -2166,22 +2166,6 @@ void TestNoOpOriginalCorrected_GetSlow(const FunctionCallbackInfo<Value>& args)
   Local<Value> ret;
 
   if (retM.ToLocal(&ret)) {
-    args.GetReturnValue().Set(ret);
-  }
-  else {
-    isolate->ThrowException(safeV8::V8Err(isolate, "Invalid type", v8::Exception::TypeError));
-  }
-}
-
-void TestNoOpOriginalCorrected_GetFast(const FunctionCallbackInfo<Value>& args)
-{
-  Environment* env = Environment::GetCurrent(args);
-  Isolate* isolate = env->isolate();
-
-  Local<Object> a1 = args[0].As<Object>();
-  Local<Value> ret = a1->Get(0);
-
-  if (!ret.IsEmpty()) {
     args.GetReturnValue().Set(ret);
   }
   else {
@@ -2342,8 +2326,7 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "testNoOpPromise", TestNoOpPromise);
   env->SetMethod(target, "cppOverheadTest", CppOverheadTest);
   env->SetMethod(target, "testNoOpOriginal_Get", TestNoOpOriginal_Get);
-  env->SetMethod(target, "testNoOpOriginalCorrected_GetSlow", TestNoOpOriginalCorrected_GetSlow);
-  env->SetMethod(target, "testNoOpOriginalCorrected_GetFast", TestNoOpOriginalCorrected_GetFast);
+  env->SetMethod(target, "testNoOpOriginalCorrected_GetS", TestNoOpOriginalCorrected_Get);
   env->SetMethod(target, "testNoOpPromise_GetSlow", TestNoOpPromise_GetSlow);
   env->SetMethod(target, "testNoOpPromise_GetFast", TestNoOpPromise_GetFast);
 

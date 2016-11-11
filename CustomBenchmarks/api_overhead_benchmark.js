@@ -137,21 +137,12 @@ function TestGet2()
 {
 	const a2 = process.hrtime();
 	for (var i = 0; i <= n; i++){
-		var ret = binding.testNoOpOriginalCorrected_GetSlow(["test"]);
+		var ret = binding.testNoOpOriginalCorrected_Get(["test"]);
 	}
 	const b2 = process.hrtime(a2);
-	console.info("Execution time testNoOpOriginalCorrected_GetSlow (hr): %ds %dns", b2[0], b2[1]);
+	console.info("Execution time testNoOpOriginalCorrected_Get (hr): %ds %dns", b2[0], b2[1]);
 }
 function TestGet3()
-{
-	const a3 = process.hrtime();
-	for (var i = 0; i <= n; i++){
-		var ret = binding.testNoOpOriginalCorrected_GetFast(["test"]);
-	}
-	const b3 = process.hrtime(a3);
-	console.info("Execution time testNoOpOriginalCorrected_GetFast (hr): %ds %dns", b3[0], b3[1]);
-}
-function TestGet4()
 {
 	const a4 = process.hrtime();
 	for (var i = 0; i <= n; i++){
@@ -160,7 +151,7 @@ function TestGet4()
 	const b4 = process.hrtime(a4);
 	console.info("Execution time testNoOpPromise_GetSlow (hr): %ds %dns", b4[0], b4[1]);
 }
-function TestGet5()
+function TestGet4()
 {
 	const a5 = process.hrtime();
 	for (var i = 0; i <= n; i++){
@@ -190,5 +181,4 @@ for (var i = 1; i <= iterationCount; i++) {
 	TestGet2();
 	TestGet3();
 	TestGet4();
-	TestGet5();
 }

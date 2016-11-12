@@ -15,12 +15,12 @@ function main(conf) {
   var len = +conf.millions * 1e6;
   var fn = conf.type;
 
-  var testFunction = new Function('', [
+  var testFunction = new Function('binding', [
     'for (var i = 0; i !== ' + len + '; i++) {',
     '  binding.' + fn + ';',
     '}'
   ].join('\n'));
   bench.start();
-  testFunction(safeAPIBench);
+  testFunction(binding);
   bench.end(len / 1e6);
 }

@@ -2717,6 +2717,8 @@ class V8_EXPORT Object : public Value {
   V8_WARN_UNUSED_RESULT MaybeLocal<Value> Get(Local<Context> context,
                                               uint32_t index);
 
+  V8_WARN_UNUSED_RESULT bool GetNative(Local<Context> context, uint32_t index, Local<Value>& outVal);
+
   /**
    * Gets the property attributes of a property which can be None or
    * any combination of ReadOnly, DontEnum and DontDelete. Returns

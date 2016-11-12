@@ -2326,7 +2326,7 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "testNoOpPromise", TestNoOpPromise);
   env->SetMethod(target, "cppOverheadTest", CppOverheadTest);
   env->SetMethod(target, "testNoOpOriginal_Get", TestNoOpOriginal_Get);
-  env->SetMethod(target, "testNoOpOriginalCorrected_GetS", TestNoOpOriginalCorrected_Get);
+  env->SetMethod(target, "testNoOpOriginalCorrected_Get", TestNoOpOriginalCorrected_Get);
   env->SetMethod(target, "testNoOpPromise_GetSlow", TestNoOpPromise_GetSlow);
   env->SetMethod(target, "testNoOpPromise_GetFast", TestNoOpPromise_GetFast);
 

@@ -578,8 +578,8 @@ bool SafeV8Get(Local<Context> context, ObjectType object, KeyType key, Local<Val
 
 template<typename ObjectType, typename KeyType>
 bool SafeV8Get_Fast(Local<Context> context, ObjectType object, KeyType key, Local<Value>& outVal, Local<Value>& err, bool& hasError) {
-  outVal = object->Get(key);
-  if (!outVal.IsEmpty())
+
+  if (object->GetNative(context, key, outVal))
   {
     hasError = false;
     return true;

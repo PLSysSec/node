@@ -3796,6 +3796,30 @@ MaybeLocal<Value> v8::Object::Get(Local<Context> context, uint32_t index) {
   RETURN_ESCAPED(Utils::ToLocal(result));
 }
 
+bool v8::Object::GetNative(Local<Context> context, uint32_t index, Local<Value>& outVal) {
+  auto isolate = context.IsEmpty() ? i::Isolate::Current() : reinterpret_cast<i::Isolate*>(context->GetIsolate());
+  if (IsExecutionTerminatingCheck(isolate)) {
+    return false;
+  }
+
+  InternalEscapableScope handle_scope(isolate);
+  CallDepthScope<false> call_depth_scope(isolate, context);
+  LOG_API(isolate, Object, Get);
+  ENTER_V8(isolate);
+
+  bool has_pending_exception = false;
+  auto self = Utils::OpenHandle(this);
+  i::Handle<i::Object> result;
+  has_pending_exception = !i::JSReceiver::GetElement(isolate, self, index).ToHandle(&result);
+
+  if (has_pending_exception) {
+    call_depth_scope.Escape();
+    return false;
+  }
+
+  outVal = handle_scope.Escape(Utils::ToLocal(result));
+  return true;
+}
 
 Local<Value> v8::Object::Get(uint32_t index) {
   auto context = ContextFromHeapObject(Utils::OpenHandle(this));

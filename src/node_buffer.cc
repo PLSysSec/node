@@ -862,9 +862,6 @@ safeV8::SafeV8Promise_Base FillWithBuffer(const FunctionCallbackInfo<Value>& arg
 
 safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& args, Isolate* isolate, char* const ts_obj_data, size_t start, size_t fill_length)
 {
-  bool convertableToString = true;
-
-  
   if (!args[1]->IsString())
   {
     auto uint32Val = safeV8::coerceTouint32_t(isolate, args[1]);
@@ -2109,7 +2106,7 @@ void CppOverheadTest(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = env->isolate();
 
-  const uint64_t iterationCount = 100 * 1024 * 1024;
+  const uint64_t iterationCount = 99 * 1024 * 1024;
 
   uint64_t noOpOriginalTicks;
   {
@@ -2142,7 +2139,7 @@ void CppOverheadTest(const FunctionCallbackInfo<Value>& args) {
   }
 
   char message[1024];
-  sprintf(message, "Execution time : testNoOpOriginal %llu ns, testNoOpOriginalCorrected %llu ns,  testNoOpPromise %llu ns", noOpOriginalTicks, noOpOriginalCorrectedTicks, noOpPromiseTicks);
+  sprintf(message, "Execution time : testNoOpOriginal %lu ns, testNoOpOriginalCorrected %lu ns,  testNoOpPromise %lu ns", noOpOriginalTicks, noOpOriginalCorrectedTicks, noOpPromiseTicks);
   MaybeLocal<String> mErrMsg = v8::String::NewFromUtf8(isolate, message, v8::String::NewStringType::kNormalString);
   Local<String> ret = mErrMsg.FromMaybe(Local<String>());
   args.GetReturnValue().Set(ret);

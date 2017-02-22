@@ -521,7 +521,7 @@ class Parser : public AsyncWrap {
       Parser* parser;
       ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder(), safeV8::Done);
       // Should always be called from the same context.
-      if (!(env, parser->env())) {
+      if (!(env == parser->env())) {
         return safeV8::Err(isolate, "Parser not called from the same context");
       }
 
@@ -645,6 +645,7 @@ class Parser : public AsyncWrap {
         stream->set_alloc_cb(parser->prev_alloc_cb_);
         stream->set_read_cb(parser->prev_read_cb_);
 
+        return safeV8::Done;
       })
       .OnErr([&](Local<Value> exception) {
       });

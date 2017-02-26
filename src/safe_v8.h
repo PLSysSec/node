@@ -10,7 +10,7 @@ using namespace v8;
 namespace safeV8 {
 
 
-
+/*
   template <typename E, typename V>
   class MVal;
 
@@ -151,7 +151,7 @@ namespace safeV8 {
       return; \
     } \
   } while(0);
-
+*/
   ////////////////////////////////////////////////////////////////////////////////////////////
 
 #define DEFINE_TY_VAL(Type) \
@@ -208,6 +208,7 @@ DEFINE_CTY_VAL(int32_t, Int32)
 //int64 version
 bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, int64_t& outVal, Local<Value>& err, bool& hasError);
 
+bool SafeV8ToString(Isolate* isolate, Local<Value> v, Local<String>& outStringVal, Local<Value>& err, bool& hasError);
 
 /* Returns the first argument type of a given lambda */
 
@@ -705,7 +706,7 @@ public:
 };
 
 template<typename ObjectType, typename KeyType>
-V8_WARN_UNUSED_RESULT SafeV8_GetterOutput<ObjectType, KeyType> GetField(Local<Context> context, ObjectType object, KeyType key)
+V8_WARN_UNUSED_RESULT inline SafeV8_GetterOutput<ObjectType, KeyType> GetField(Local<Context> context, ObjectType object, KeyType key)
 {
   return SafeV8_GetterOutput<ObjectType, KeyType>(context, object, key);
 }
@@ -807,13 +808,13 @@ public:
 };
 
 template<typename ObjectType, typename KeyType>
-V8_WARN_UNUSED_RESULT SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
+V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
 {
   return SafeV8_SetterOutput<ObjectType, KeyType>(context, object, key, val);
 }
 
 template<typename ObjectType, typename KeyType, typename GetObjectType, typename GetKeyType>
-V8_WARN_UNUSED_RESULT SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, SafeV8_GetterOutput<GetObjectType, GetKeyType> val)
+V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, SafeV8_GetterOutput<GetObjectType, GetKeyType> val)
 {
   SafeV8_SetterOutput<ObjectType, KeyType>* ptr;
 
@@ -827,6 +828,77 @@ V8_WARN_UNUSED_RESULT SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Co
   return ret;
 }
 
+////////////////////////////////////////////////
+
+class SafeV8Promise_GetOutput_ToString : public SafeV8Promise_Base
+{
+private:
+  Isolate* isolate;
+  Local<Value> v1;
+public:
+  SafeV8Promise_GetOutput_ToString(Isolate* _isolate, Local<Value> _v1) : isolate(_isolate), v1(_v1) {}
+
+  //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput_ToString>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+  {
+    first_argument<F> obj1;
+    if (SafeV8ToString(isolate, v1, obj1, err, exceptionThrown))
+    {
+      func(obj1);
+      return *this;
+    }
+
+    if (!customException.IsEmpty())
+    {
+      err = customException;
+    }
+    return *this;
+  }
+
+  //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput_ToString>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+  {
+    first_argument<F> obj1;
+    if (SafeV8ToString(isolate, v1, obj1, err, exceptionThrown))
+    {
+      SafeV8Promise_Base nestedCall = func(obj1);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+      return *this;
+    }
+
+    if (!customException.IsEmpty())
+    {
+      err = customException;
+    }
+    return *this;
+  }
+
+  //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
+  template<typename F>
+  typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
+  {
+    if (exceptionThrown)
+    {
+      func(err);
+    }
+  }
+
+  //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
+  template<typename F>
+  V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput_ToString>::type OnErr(F func)
+  {
+    if (exceptionThrown)
+    {
+      SafeV8Promise_Base nestedCall = func(err);
+      exceptionThrown = nestedCall.GetIsExceptionThrown();
+      err = nestedCall.GetException();
+    }
+    return *this;
+  }
+};
 
 ////////////////////////////////////////////////
 
@@ -902,6 +974,7 @@ public:
 
 V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput_Coerce1 WithCoerce(Isolate* isolate, Local<Value> first);
 
+/*
 #define DEFINE_TY_VAL(Type) \
   inline MVal<Local<Value>, Local<Type>> Type##Val(Isolate* isolate, Local<Value> v) { \
     if (v->Is##Type()) { \
@@ -1007,6 +1080,7 @@ inline MVal<Local<Value>, Local<String>> toString(Isolate* isolate, Local<Value>
     return MVal<Local<Value>, Local<String>>(err);
   }
 }
+*/
 
 #define DEFINE_TY_VAL(Type) \
   inline bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, Local<Type>& outVal, Local<Value>& err, bool& hasError) { \
@@ -1112,6 +1186,23 @@ inline bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, int64_t& outVal, 
 }
 
 
+inline bool SafeV8ToString(Isolate* isolate, Local<Value> v, Local<String>& outStringVal, Local<Value>& err, bool& hasError) {
+  MaybeLocal<String> ret = v->ToString(isolate->GetCurrentContext());
+  if (!ret.IsEmpty()) {
+    outStringVal = ret.FromMaybe(Local<String>());
+    hasError = false;
+    return true;
+  }
+  else {
+    MaybeLocal<String> mErrMsg =
+      v8::String::NewFromUtf8(isolate, "Could not convert to string", v8::String::NewStringType::kNormalString);
+    err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
+    hasError = true;
+    return false;
+  }
+}
+
+
 inline SafeV8Promise_Base Err(Local<Value> err)
 {
   SafeV8Promise_Base e;
@@ -1163,6 +1254,11 @@ V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput3 With(Isolate* isolate, Loc
 V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput_Coerce1 WithCoerce(Isolate* isolate, Local<Value> first)
 {
   return SafeV8Promise_GetOutput_Coerce1(isolate, first);
+}
+
+V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput_ToString ToString(Isolate* isolate, Local<Value> first)
+{
+  return SafeV8Promise_GetOutput_ToString(isolate, first);
 }
 
 }

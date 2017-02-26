@@ -864,68 +864,61 @@ safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& a
 {
   if (!args[1]->IsString())
   {
-    auto uint32Val = safeV8::coerceTouint32_t(isolate, args[1]);
-    if (uint32Val.IsError())
-    {
-      return safeV8::Err(isolate, "Could not convert the start and end values to uint32");
-    }
-
-    memset(ts_obj_data + start, uint32Val.UnsafeVal(), fill_length);
+    return safeV8::WithCoerce(isolate, args[1])
+    .OnVal([&](uint32_t value) {
+      memset(ts_obj_data + start, value, fill_length);
+    });
   }
   else
   {
-    auto toStringResult = safeV8::toString(isolate, args[1]);
-    if (toStringResult.IsError())
-    {
-      return safeV8::Err(isolate, "Could not convert the argument toString");
-    }
+    return safeV8::ToString(isolate, args[1])
+    .OnVal([&](Local<String> str_obj) {
 
-    Local<String> str_obj = toStringResult.UnsafeVal();
-    enum encoding enc = ParseEncoding(isolate, args[4], UTF8);
-    size_t str_length =
-      enc == UTF8 ? str_obj->Utf8Length() :
-      enc == UCS2 ? str_obj->Length() * sizeof(uint16_t) : str_obj->Length();
+      enum encoding enc = ParseEncoding(isolate, args[4], UTF8);
+      size_t str_length =
+        enc == UTF8 ? str_obj->Utf8Length() :
+        enc == UCS2 ? str_obj->Length() * sizeof(uint16_t) : str_obj->Length();
 
-    if (enc == HEX && str_length % 2 != 0)
-      return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
+      if (enc == HEX && str_length % 2 != 0)
+        return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
 
-    if (str_length == 0)
-      return safeV8::Done;
-
-    // Can't use StringBytes::Write() in all cases. For example if attempting
-    // to write a two byte character into a one byte Buffer.
-    if (enc == UTF8) {
-      node::Utf8Value str(isolate, args[1]);
-      memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
-
-    }
-    else if (enc == UCS2) {
-      node::TwoByteValue str(isolate, args[1]);
-      memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
-
-    }
-    else {
-      // Write initial String to Buffer, then use that memory to copy remainder
-      // of string. Correct the string length for cases like HEX where less than
-      // the total string length is written.
-      str_length = StringBytes::Write(isolate,
-        ts_obj_data + start,
-        fill_length,
-        str_obj,
-        enc,
-        nullptr);
-      // This check is also needed in case Write() returns that no bytes could
-      // be written.
-      // TODO(trevnorris): Should this throw? Because of the string length was
-      // greater than 0 but couldn't be written then the string was invalid.
       if (str_length == 0)
         return safeV8::Done;
-    }
 
-    Fill_Helper(str_length, fill_length, ts_obj_data, start);
+      // Can't use StringBytes::Write() in all cases. For example if attempting
+      // to write a two byte character into a one byte Buffer.
+      if (enc == UTF8) {
+        node::Utf8Value str(isolate, args[1]);
+        memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
+
+      }
+      else if (enc == UCS2) {
+        node::TwoByteValue str(isolate, args[1]);
+        memcpy(ts_obj_data + start, *str, MIN(str_length, fill_length));
+
+      }
+      else {
+        // Write initial String to Buffer, then use that memory to copy remainder
+        // of string. Correct the string length for cases like HEX where less than
+        // the total string length is written.
+        str_length = StringBytes::Write(isolate,
+          ts_obj_data + start,
+          fill_length,
+          str_obj,
+          enc,
+          nullptr);
+        // This check is also needed in case Write() returns that no bytes could
+        // be written.
+        // TODO(trevnorris): Should this throw? Because of the string length was
+        // greater than 0 but couldn't be written then the string was invalid.
+        if (str_length == 0)
+          return safeV8::Done;
+      }
+
+      Fill_Helper(str_length, fill_length, ts_obj_data, start);
+      return safeV8::Done;
+    });
   }
-
-  return safeV8::Done;
 }
 
 void Fill(const FunctionCallbackInfo<Value>& args) {
@@ -935,27 +928,27 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
 
-    auto startVal = safeV8::coerceTouint32_t(isolate, args[2]);
-    auto endVal = safeV8::coerceTouint32_t(isolate, args[3]);
+    return safeV8::WithCoerce(isolate, args[2])
+    .OnVal([&](uint32_t start) {
 
-    if (startVal.IsError() || endVal.IsError())
-    {
-      return safeV8::Err(isolate, "Could not convert the start and end values to uint32");
-    }
+      return safeV8::WithCoerce(isolate, args[3])
+      .OnVal([&](uint32_t end) {
 
-    size_t start = startVal.UnsafeVal();
-    size_t end = endVal.UnsafeVal();
-    size_t fill_length = end - start;
-    THROW_AND_RETURN_IF_OOB_SAFE(isolate, start <= end);
-    THROW_AND_RETURN_IF_OOB_SAFE(isolate, fill_length + start <= ts_obj_length);
+        size_t fill_length = end - start;
+        THROW_AND_RETURN_IF_OOB_SAFE(isolate, start <= end);
+        THROW_AND_RETURN_IF_OOB_SAFE(isolate, fill_length + start <= ts_obj_length);
 
-    // First check if Buffer has been passed.
-    if (Buffer::HasInstance(args[1])) {
-      return FillWithBuffer(args, isolate, ts_obj_data, start, fill_length);
-    }
-    else {
-      return FillWithNoBuffer(args, isolate, ts_obj_data, start, fill_length);
-    }
+        // First check if Buffer has been passed.
+        if (Buffer::HasInstance(args[1])) {
+          return FillWithBuffer(args, isolate, ts_obj_data, start, fill_length);
+        }
+        else {
+          return FillWithNoBuffer(args, isolate, ts_obj_data, start, fill_length);
+        }
+
+      });
+    });
+
   })
   .OnErr([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
@@ -1018,41 +1011,39 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
     if (!args[0]->IsString())
       return safeV8::Err(isolate, "Argument must be a string", v8::Exception::TypeError);
 
-    auto strVal = safeV8::toString(isolate, args[0]);
-    
-    if (strVal.IsError())
-      return safeV8::Err(strVal.UnsafeError());
+    return safeV8::ToString(isolate, args[0])
+    .OnVal([&](Local<String> str) {
 
-    Local<String> str = strVal.UnsafeVal();
+      if (encoding == HEX && str->Length() % 2 != 0)
+        return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
 
-    if (encoding == HEX && str->Length() % 2 != 0)
-      return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
+      size_t offset;
+      size_t max_length;
 
-    size_t offset;
-    size_t max_length;
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[1], 0, &offset));
 
-    THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[1], 0, &offset));
+      if (offset > ts_obj_length)
+        return safeV8::Err(isolate, "Offset is out of bounds", v8::Exception::RangeError);
 
-    if (offset > ts_obj_length)
-      return safeV8::Err(isolate, "Offset is out of bounds", v8::Exception::RangeError);
+      THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[2], ts_obj_length - offset, &max_length));
+      max_length = MIN(ts_obj_length - offset, max_length);
 
-    THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[2], ts_obj_length - offset, &max_length));
-    max_length = MIN(ts_obj_length - offset, max_length);
+      if (max_length == 0) {
+        args.GetReturnValue().Set(0);
+        return safeV8::Done;
+      }
 
-    if (max_length == 0) {
-      args.GetReturnValue().Set(0);
+      uint32_t written = StringBytes::Write(env->isolate(),
+        ts_obj_data + offset,
+        max_length,
+        str,
+        encoding,
+        nullptr);
+
+      args.GetReturnValue().Set(written);
       return safeV8::Done;
-    }
 
-    uint32_t written = StringBytes::Write(env->isolate(),
-      ts_obj_data + offset,
-      max_length,
-      str,
-      encoding,
-      nullptr);
-
-    args.GetReturnValue().Set(written);
-    return safeV8::Done;
+    });
   })
   .OnErr([&](Local<Value> exception) {
     isolate->ThrowException(exception);
@@ -1949,40 +1940,36 @@ void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
   return safeV8::With(isolate, args[2], args[3])
   .OnVal([&](int64_t offset_i64, bool is_forward) -> safeV8::SafeV8Promise_Base {
     
-    auto needleVal = safeV8::coerceTouint32_t(isolate, args[1]);
-    if (needleVal.IsError())
-    {
-      return safeV8::Err(isolate, "Could not convert the needle value to uint32");
-    }
+    return safeV8::WithCoerce(isolate, args[1])
+    .OnVal([&](uint32_t needle) {
 
-    uint32_t needle = needleVal.UnsafeVal();
+      return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
 
-    return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
+        int64_t opt_offset = IndexOfOffset(ts_obj_length, offset_i64, is_forward);
+        if (opt_offset <= -1) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
 
-      int64_t opt_offset = IndexOfOffset(ts_obj_length, offset_i64, is_forward);
-      if (opt_offset <= -1) {
-        args.GetReturnValue().Set(-1);
+        size_t offset = static_cast<size_t>(opt_offset);
+        if(offset >= ts_obj_length) {
+          args.GetReturnValue().Set(-1);
+          return safeV8::Done;
+        }
+
+        const void* ptr;
+        if (is_forward) {
+          ptr = memchr(ts_obj_data + offset, needle, ts_obj_length - offset);
+        }
+        else {
+          ptr = node::stringsearch::MemrchrFill(ts_obj_data, needle, offset + 1);
+        }
+        const char* ptr_char = static_cast<const char*>(ptr);
+        args.GetReturnValue().Set(ptr ? static_cast<int>(ptr_char - ts_obj_data)
+          : -1);
+
         return safeV8::Done;
-      }
-
-      size_t offset = static_cast<size_t>(opt_offset);
-      if(offset >= ts_obj_length) {
-        args.GetReturnValue().Set(-1);
-        return safeV8::Done;
-      }
-
-      const void* ptr;
-      if (is_forward) {
-        ptr = memchr(ts_obj_data + offset, needle, ts_obj_length - offset);
-      }
-      else {
-        ptr = node::stringsearch::MemrchrFill(ts_obj_data, needle, offset + 1);
-      }
-      const char* ptr_char = static_cast<const char*>(ptr);
-      args.GetReturnValue().Set(ptr ? static_cast<int>(ptr_char - ts_obj_data)
-        : -1);
-
-      return safeV8::Done;
+      });
     });
   })
   .OnErr([&isolate](Local<Value> exception) {

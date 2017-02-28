@@ -1,0 +1,6 @@
+export CC=/home/shr/Code/llvm/build/bin/clang
+export CXX=/home/shr/Code/llvm/build/bin/clang++
+export LINK=/home/shr/Code/llvm/build/bin/clang++
+export C=-fsave-optimization-record
+export CXXFLAGS=-fsave-optimization-record
+make -j8 node

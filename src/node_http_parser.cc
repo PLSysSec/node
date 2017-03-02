@@ -18,11 +18,11 @@
 
 //Code version
 //Default
-#define B_SAFE_R 0
+//#define B_SAFE_R 0
 //New Macro
 //#define B_SAFE_R 1
 //With Api
-// #define B_SAFE_R 2
+#define B_SAFE_R 2
 
 // This is a binding to http_parser (https://github.com/joyent/http-parser)
 // The goal is to decouple sockets from parsing for more javascript-level

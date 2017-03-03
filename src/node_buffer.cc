@@ -1296,27 +1296,24 @@ void WriteDoubleBE(const FunctionCallbackInfo<Value>& args) {
   WriteFloatGeneric<double, kBigEndian>(args);
 }
 
-
 void ByteLengthUtf8(const FunctionCallbackInfo<Value> &args) {
-#if B_SAFE_R == 0
-
   CHECK(args[0]->IsString());
 
   // Fast case: avoid StringBytes on UTF8 string. Jump to v8.
   args.GetReturnValue().Set(args[0].As<String>()->Utf8Length());
-#endif
-#if B_SAFE_R == 2
-  Isolate* isolate = args.GetIsolate();
 
-  return safeV8::With(isolate, args[0])
-    .OnVal([&](Local<String> val) {
-      // Fast case: avoid StringBytes on UTF8 string. Jump to v8.
-      args.GetReturnValue().Set(val->Utf8Length());
-    })
-    .OnErr([&](Local<Value> exception) {
-      isolate->ThrowException(exception);
-    });
-#endif
+// #if B_SAFE_R == 2
+//   Isolate* isolate = args.GetIsolate();
+
+//   return safeV8::With(isolate, args[0])
+//     .OnVal([&](Local<String> val) {
+//       // Fast case: avoid StringBytes on UTF8 string. Jump to v8.
+//       args.GetReturnValue().Set(val->Utf8Length());
+//     })
+//     .OnErr([&](Local<Value> exception) {
+//       isolate->ThrowException(exception);
+//     });
+// #endif
 }
 
 // Normalize val to be an integer in the range of [1, -1] since

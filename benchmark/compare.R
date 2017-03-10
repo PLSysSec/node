@@ -79,5 +79,5 @@ statistics = ddply(dat, "name", function(subdat) {
 row.names(statistics) = statistics$name;
 statistics$name = NULL;
 
-options(width = 200);
+options(width = 500);
 print(statistics);

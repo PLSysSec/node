@@ -33,15 +33,3 @@ tests = table;
 tests.Id = oldAvg.test;
 tests.Separation = (arrFinal(:,3) - arrFinal(:,5)) - (arrFinal(:,2) + arrFinal(:,4));
 tests = sortrows(tests, 'Separation', 'descend');
-
-X = transpose(arrFinal(:, 1));
-Y = transpose(arrFinal(:, 2));
-err = transpose(arrFinal(:, 4));
-errorbar(X, Y, err, '-s','MarkerSize',3, 'MarkerEdgeColor','blue','MarkerFaceColor','blue', 'LineWidth', 1.5);
-hold on
-
-Y = transpose(arrFinal(:, 3));
-err = transpose(arrFinal(:, 5));
-errorbar(X, Y, err, '-s','MarkerSize',3, 'MarkerEdgeColor','red','MarkerFaceColor','red', 'LineWidth', 1.5);
-
-legend('old rates','new rates');

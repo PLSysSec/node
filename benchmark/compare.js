@@ -53,35 +53,38 @@ console.log('"binary", "filename", "configuration", "rate", "time"');
 
 (function recursive(i) {
   const job = queue[i];
+  
+  setTimeout(function() {
 
-  const child = fork(path.resolve(__dirname, job.filename), cli.optional.set, {
-    execPath: cli.optional[job.binary]
-  });
+        const child = fork(path.resolve(__dirname, job.filename), cli.optional.set, {
+          execPath: cli.optional[job.binary]
+        });
 
-  child.on('message', function(data) {
-    // Construct configuration string, " A=a, B=b, ..."
-    let conf = '';
-    for (const key of Object.keys(data.conf)) {
-      conf += ' ' + key + '=' + JSON.stringify(data.conf[key]);
-    }
-    conf = conf.slice(1);
+        child.on('message', function(data) {
+          // Construct configuration string, " A=a, B=b, ..."
+          let conf = '';
+          for (const key of Object.keys(data.conf)) {
+            conf += ' ' + key + '=' + JSON.stringify(data.conf[key]);
+          }
+          conf = conf.slice(1);
 
-    // Escape quotes (") for correct csv formatting
-    conf = conf.replace(/"/g, '""');
+          // Escape quotes (") for correct csv formatting
+          conf = conf.replace(/"/g, '""');
 
-    console.log(`"${job.binary}", "${job.filename}", "${conf}", ` +
-                `${data.rate}, ${data.time}`);
-  });
+          console.log(`"${job.binary}", "${job.filename}", "${conf}", ` +
+                      `${data.rate}, ${data.time}`);
+        });
 
-  child.once('close', function(code) {
-    if (code) {
-      process.exit(code);
-      return;
-    }
+        child.once('close', function(code) {
+          if (code) {
+            process.exit(code);
+            return;
+          }
 
-    // If there are more benchmarks execute the next
-    if (i + 1 < queue.length) {
-      recursive(i + 1);
-    }
-  });
+          // If there are more benchmarks execute the next
+          if (i + 1 < queue.length) {
+            recursive(i + 1);
+          }
+        });
+  }, 5000);
 })(0);

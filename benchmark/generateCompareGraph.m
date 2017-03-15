@@ -48,3 +48,4 @@ h_legend=legend('old rates','new rates');
 set(h_legend,'FontSize',32);
 
 set(gca,'fontsize',32);
+axis tight

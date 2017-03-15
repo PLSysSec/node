@@ -1,5 +1,5 @@
 function tests=generateCompareGraph(fpath)
-%'/home/shr/Code/benchmarks_301_buffer25runs.txt'
+%fpath='/home/shr/Code/benchmarks_303_buffer25runs_indexOf.txt'
 table1 = readtable(fpath,'Delimiter',',','ReadVariableNames',false);
 values1 = table2cell(table1);
 values1 = values1(2:end, :);
@@ -18,7 +18,6 @@ newAvg = varfun(@mean,table2New,'GroupingVariables','test','InputVariable','rate
 oldStd = varfun(@std,table2Old,'GroupingVariables','test','InputVariable','rate');
 newStd = varfun(@std,table2New,'GroupingVariables','test','InputVariable','rate');
 
-tests = oldAvg.test;
 testCount = size(oldAvg, 1);
 
 tableFinal = table;
@@ -30,6 +29,10 @@ tableFinal.newStd = newStd.std_rate ./ oldAvg.mean_rate;
 
 arrFinal = table2array(tableFinal);
 
+tests = table;
+tests.Id = oldAvg.test;
+tests.Separation = (arrFinal(:,3) - arrFinal(:,5)) - (arrFinal(:,2) + arrFinal(:,4));
+tests = sortrows(tests, 'Separation', 'descend');
 
 X = transpose(arrFinal(:, 1));
 Y = transpose(arrFinal(:, 2));
@@ -41,4 +44,7 @@ Y = transpose(arrFinal(:, 3));
 err = transpose(arrFinal(:, 5));
 errorbar(X, Y, err, '-s','MarkerSize',3, 'MarkerEdgeColor','red','MarkerFaceColor','red', 'LineWidth', 1.5);
 
-legend('old rates','new rates');
+h_legend=legend('old rates','new rates');
+set(h_legend,'FontSize',32);
+
+set(gca,'fontsize',32);

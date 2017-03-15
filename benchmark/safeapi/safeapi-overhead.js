@@ -1,13 +1,11 @@
 var common = require('../common.js');
 const binding = process.binding('buffer');
+const v8 = require('v8');
 
 var bench = common.createBenchmark(main, {
-  type: ['testNoOpOriginal(23)', 
-         'testNoOpOriginalCorrected(23)',
-         'testNoOpPromise(23)',
-         'testNoOpOriginalCorrected_Get([23])',
-         'testNoOpPromise_GetSlow([23])',
-         'testNoOpPromise_GetFast([23])'],
+  type: ['testNoOpOriginal',
+         'testNoOpOriginalCorrected',
+	 'testNoOpPromise'],
   millions: [100]
 });
 
@@ -15,12 +13,18 @@ function main(conf) {
   var len = +conf.millions * 1e6;
   var fn = conf.type;
 
-  var testFunction = new Function('binding', [
-    'for (var i = 0; i !== ' + len + '; i++) {',
-    '  binding.' + fn + ';',
-    '}'
-  ].join('\n'));
+  var testFunction = binding[fn];
+
+  v8.setFlagsFromString('--allow_natives_syntax');
+  testFunction(23);
+  testFunction(23);
+  eval('%OptimizeFunctionOnNextCall(testFunction)');
+  //eval('%NeverOptimizeFunction(testFunction)');
+  testFunction(23);
+
   bench.start();
-  testFunction(binding);
+  for (var i = 0; i !== len; i++) {
+    testFunction(23);
+  }
   bench.end(len / 1e6);
 }

@@ -46,11 +46,11 @@ std::string GetWsUrl(int port, const std::string& id) {
 
 void PrintDebuggerReadyMessage(int port, const std::string& id) {
   fprintf(stderr, "Debugger listening on port %d.\n"
-    "Warning: This is an experimental feature and could change at any time.\n"
+    /*"Warning: This is an experimental feature and could change at any time.\n"
     "To start debugging, open the following URL in Chrome:\n"
     "    chrome-devtools://devtools/remote/serve_file/"
     "@" V8_INSPECTOR_REVISION "/inspector.html?"
-    "experiments=true&v8only=true&ws=%s\n",
+    "experiments=true&v8only=true&ws=%s\n"*/,
       port, GetWsUrl(port, id).c_str());
   fflush(stderr);
 }
@@ -93,10 +93,10 @@ void OnBufferAlloc(uv_handle_t* handle, size_t len, uv_buf_t* buf) {
 
 void SendHttpResponse(InspectorSocket* socket, const std::string& response) {
   const char HEADERS[] = "HTTP/1.0 200 OK\r\n"
-                         "Content-Type: application/json; charset=UTF-8\r\n"
+                         /*"Content-Type: application/json; charset=UTF-8\r\n"
                          "Cache-Control: no-cache\r\n"
                          "Content-Length: %zu\r\n"
-                         "\r\n";
+                         "\r\n"*/;
   char header[sizeof(HEADERS) + 20];
   int header_len = snprintf(header, sizeof(header), HEADERS, response.size());
   inspector_write(socket, header, header_len);
@@ -461,7 +461,7 @@ void InspectorWrapConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& args) {
   if (args.Length() != 3 || !args[0]->IsFunction() ||
       !args[1]->IsFunction() || !args[2]->IsObject()) {
     return env->ThrowError("inspector.wrapConsoleCall takes exactly 3 "
-        "arguments: two functions and an object.");
+        /*"arguments: two functions and an object." */);
   }
 
   v8::Local<v8::Array> array = v8::Array::New(env->isolate(), args.Length());

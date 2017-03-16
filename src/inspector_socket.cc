@@ -153,7 +153,7 @@ static std::vector<char> encode_frame_hybi17(const char* message,
     // Fill the length into extended_payload_length in the network byte order.
     for (int i = 0; i < 8; ++i) {
       extended_payload_length[7 - i] = remaining & 0xFF;
-      remaining >>= 8;
+      //remaining >>= 8;
     }
     frame.insert(frame.end(), extended_payload_length,
                  extended_payload_length + 8);
@@ -177,14 +177,14 @@ static ws_decode_result decode_frame_hybi17(const std::vector<char>& buffer,
   unsigned char first_byte = *it++;
   unsigned char second_byte = *it++;
 
-  bool final = (first_byte & kFinalBit) != 0;
+  bool final1 = (first_byte & kFinalBit) != 0;
   bool reserved1 = (first_byte & kReserved1Bit) != 0;
   bool reserved2 = (first_byte & kReserved2Bit) != 0;
   bool reserved3 = (first_byte & kReserved3Bit) != 0;
   int op_code = first_byte & kOpCodeMask;
   bool masked = (second_byte & kMaskBit) != 0;
   *compressed = reserved1;
-  if (!final || reserved2 || reserved3)
+  if (!final1 || reserved2 || reserved3)
     return FRAME_ERROR;  // Only compression extension is supported.
 
   bool closed = false;
@@ -462,8 +462,8 @@ static void then_close_and_report_failure(uv_write_t* req, int status) {
 static void handshake_failed(InspectorSocket* inspector) {
   const char HANDSHAKE_FAILED_RESPONSE[] =
       "HTTP/1.0 400 Bad Request\r\n"
-      "Content-Type: text/html; charset=UTF-8\r\n\r\n"
-      "WebSockets request was expected\r\n";
+      /*"Content-Type: text/html; charset=UTF-8\r\n\r\n"
+      "WebSockets request was expected\r\n"*/;
   write_to_client(inspector, HANDSHAKE_FAILED_RESPONSE,
                   sizeof(HANDSHAKE_FAILED_RESPONSE) - 1,
                   then_close_and_report_failure);
@@ -490,9 +490,9 @@ static int message_complete_cb(http_parser* parser) {
     char accept_string[ACCEPT_KEY_LENGTH];
     generate_accept_string(state->ws_key, &accept_string);
     const char accept_ws_prefix[] = "HTTP/1.1 101 Switching Protocols\r\n"
-                                    "Upgrade: websocket\r\n"
+                                    /*"Upgrade: websocket\r\n"
                                     "Connection: Upgrade\r\n"
-                                    "Sec-WebSocket-Accept: ";
+                                    "Sec-WebSocket-Accept: "*/;
     const char accept_ws_suffix[] = "\r\n\r\n";
     std::string reply(accept_ws_prefix, sizeof(accept_ws_prefix) - 1);
     reply.append(accept_string, sizeof(accept_string));

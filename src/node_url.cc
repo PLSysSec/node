@@ -624,7 +624,7 @@ namespace url {
                     Local<Value> recv,
                     const char* input,
                     const size_t len,
-                    enum url_parse_state override,
+                    enum url_parse_state override1,
                     Local<Object> base_obj,
                     Local<Object> context_obj,
                     Local<Function> cb) {
@@ -658,8 +658,8 @@ namespace url {
     buffer.reserve(len);
 
     // Set the initial parse state.
-    const bool state_override = override != kUnknownState;
-    enum url_parse_state state = state_override ? override : kSchemeStart;
+    const bool state_override = override1 != kUnknownState;
+    enum url_parse_state state = state_override ? override1 : kSchemeStart;
 
     const char* p = input;
     const char* end = input + len;
@@ -990,7 +990,7 @@ namespace url {
               FAILED()
             buffer.clear();
             state = kPort;
-            if (override == kHostname)
+            if (override1 == kHostname)
               TERMINATE()
           } else if (ch == kEOL ||
                      ch == '/' ||
@@ -1311,13 +1311,13 @@ namespace url {
           args[3]->IsObject());
     CHECK(args[4]->IsFunction());
     Utf8Value input(env->isolate(), args[0]);
-    enum url_parse_state override = kUnknownState;
+    enum url_parse_state override1 = kUnknownState;
     if (args[1]->IsNumber())
-      override = (enum url_parse_state)(args[1]->Uint32Value());
+      override1 = (enum url_parse_state)(args[1]->Uint32Value());
 
     Parse(env, args.This(),
           *input, input.length(),
-          override,
+          override1,
           args[2].As<Object>(),
           args[3].As<Object>(),
           args[4].As<Function>());

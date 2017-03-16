@@ -160,7 +160,7 @@ void DTRACE_HTTP_SERVER_REQUEST(const FunctionCallbackInfo<Value>& args) {
     req.forwardedFor = const_cast<char*>("");
 
   SLURP_CONNECTION(args[1], conn);
-  NODE_HTTP_SERVER_REQUEST(&req, &conn, conn.remote, conn.port, req.method, \
+  NODE_HTTP_SERVER_REQUEST(&req, &conn, conn.remote, conn.port, req.method,
                            req.url, conn.fd);
 }
 
@@ -209,8 +209,7 @@ void DTRACE_HTTP_CLIENT_REQUEST(const FunctionCallbackInfo<Value>& args) {
   *header = '\0';
 
   SLURP_CONNECTION_HTTP_CLIENT(args[1], conn);
-  NODE_HTTP_CLIENT_REQUEST(&req, &conn, conn.remote, conn.port, req.method, \
-                           req.url, conn.fd);
+  NODE_HTTP_CLIENT_REQUEST(&req, &conn, conn.remote, conn.port, req.method,                          req.url, conn.fd);
 }
 
 

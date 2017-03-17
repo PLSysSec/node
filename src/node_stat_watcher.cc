@@ -50,7 +50,7 @@ StatWatcher::StatWatcher(Environment* env, Local<Object> wrap)
 }
 
 
-StatWatcher::~StatWatcher() {
+StatWatcher::~StatWatcher( ) {
   Stop();
   uv_close(reinterpret_cast<uv_handle_t*>(watcher_), Delete);
 }
@@ -75,14 +75,20 @@ void StatWatcher::Callback(uv_fs_poll_t* handle,
 
 
 void StatWatcher::New(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args.IsConstructCall());
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
   Environment* env = Environment::GetCurrent(args);
   new StatWatcher(env, args.This());
 }
 
 
 void StatWatcher::Start(const FunctionCallbackInfo<Value>& args) {
-  CHECK_EQ(args.Length(), 3);
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(args.Length() != 3) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(args.Length(),3);");
+  }
 
   StatWatcher* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
@@ -107,7 +113,7 @@ void StatWatcher::Stop(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-void StatWatcher::Stop() {
+void StatWatcher::Stop( ) {
   if (!uv_is_active(reinterpret_cast<uv_handle_t*>(watcher_)))
     return;
   uv_fs_poll_stop(watcher_);

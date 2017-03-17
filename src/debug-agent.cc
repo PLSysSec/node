@@ -59,7 +59,7 @@ Agent::Agent(Environment* env) : state_(kNone),
 }
 
 
-Agent::~Agent() {
+Agent::~Agent( ) {
   Stop();
 
   uv_sem_destroy(&start_sem_);
@@ -113,7 +113,7 @@ bool Agent::Start(const char* host, int port, bool wait) {
 }
 
 
-void Agent::Enable() {
+void Agent::Enable( ) {
   v8::Debug::SetMessageHandler(parent_env()->isolate(), MessageHandler);
 
   // Assign environment to the debugger's context
@@ -123,7 +123,7 @@ void Agent::Enable() {
 }
 
 
-void Agent::Stop() {
+void Agent::Stop( ) {
   int err;
 
   if (state_ != kRunning) {
@@ -152,7 +152,7 @@ void Agent::Stop() {
 }
 
 
-void Agent::WorkerRun() {
+void Agent::WorkerRun( ) {
   static const char* argv[] = { "node", "--debug-agent" };
   Isolate::CreateParams params;
   ArrayBufferAllocator array_buffer_allocator;
@@ -234,12 +234,15 @@ void Agent::NotifyListen(const FunctionCallbackInfo<Value>& args) {
 
 
 void Agent::NotifyWait(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Agent* a = Unwrap(args);
 
   a->wait_ = false;
 
   int err = uv_async_send(&a->child_signal_);
-  CHECK_EQ(err, 0);
+  if(err != 0) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(err,0);");
+  }
 }
 
 

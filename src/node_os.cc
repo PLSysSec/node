@@ -293,15 +293,24 @@ static void GetHomeDirectory(const FunctionCallbackInfo<Value>& args) {
 
 
 static void GetUserInfo(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
   uv_passwd_t pwd;
   enum encoding encoding;
 
   if (args[0]->IsObject()) {
     Local<Object> options = args[0].As<Object>();
-    Local<Value> encoding_opt = options->Get(env->encoding_string());
+      safeV8::GetField(isolate->GetCurrentContext(), options, env->encoding_string())
+  .OnVal([&](Local<Value> options_envencoding_string)-> safeV8::SafeV8Promise_Base {
+Local<Value> encoding_opt = options_envencoding_string;
     encoding = ParseEncoding(env->isolate(), encoding_opt, UTF8);
-  } else {
+  
+  return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+} else {
     encoding = UTF8;
   }
 

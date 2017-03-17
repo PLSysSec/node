@@ -43,6 +43,7 @@ using v8::Value;
 
 static void GetProxyDetails(const FunctionCallbackInfo<Value>& args) {
   // Return undefined if it's not a proxy.
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   if (!args[0]->IsProxy())
     return;
 
@@ -57,7 +58,7 @@ static void GetProxyDetails(const FunctionCallbackInfo<Value>& args) {
 
 inline Local<Private> IndexToPrivateSymbol(Environment* env, uint32_t index) {
 #define V(name, _) &Environment::name,
-  static Local<Private> (Environment::*const methods[])() const = {
+  static Local<Private> (Environment::*const methods[])( ) const = {
     PER_ISOLATE_PRIVATE_SYMBOL_PROPERTIES(V)
   };
 #undef V
@@ -66,6 +67,7 @@ inline Local<Private> IndexToPrivateSymbol(Environment* env, uint32_t index) {
 }
 
 static void GetHiddenValue(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsObject())
@@ -83,6 +85,7 @@ static void GetHiddenValue(const FunctionCallbackInfo<Value>& args) {
 }
 
 static void SetHiddenValue(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsObject())

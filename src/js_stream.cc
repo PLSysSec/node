@@ -29,21 +29,21 @@ JSStream::JSStream(Environment* env, Local<Object> obj, AsyncWrap* parent)
 }
 
 
-JSStream::~JSStream() {
+JSStream::~JSStream( ) {
 }
 
 
-void* JSStream::Cast() {
+void* JSStream::Cast( ) {
   return static_cast<void*>(this);
 }
 
 
-AsyncWrap* JSStream::GetAsyncWrap() {
+AsyncWrap* JSStream::GetAsyncWrap( ) {
   return static_cast<AsyncWrap*>(this);
 }
 
 
-bool JSStream::IsAlive() {
+bool JSStream::IsAlive( ) {
   v8::Local<v8::Value> fn = object()->Get(env()->isalive_string());
   if (!fn->IsFunction())
     return false;
@@ -51,17 +51,17 @@ bool JSStream::IsAlive() {
 }
 
 
-bool JSStream::IsClosing() {
+bool JSStream::IsClosing( ) {
   return MakeCallback(env()->isclosing_string(), 0, nullptr)->IsTrue();
 }
 
 
-int JSStream::ReadStart() {
+int JSStream::ReadStart( ) {
   return MakeCallback(env()->onreadstart_string(), 0, nullptr)->Int32Value();
 }
 
 
-int JSStream::ReadStop() {
+int JSStream::ReadStop( ) {
   return MakeCallback(env()->onreadstop_string(), 0, nullptr)->Int32Value();
 }
 
@@ -113,7 +113,10 @@ void JSStream::New(const FunctionCallbackInfo<Value>& args) {
   // This constructor should not be exposed to public javascript.
   // Therefore we assert that we are not trying to call this as a
   // normal function.
-  CHECK(args.IsConstructCall());
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
   Environment* env = Environment::GetCurrent(args);
   JSStream* wrap;
 
@@ -125,7 +128,9 @@ void JSStream::New(const FunctionCallbackInfo<Value>& args) {
   } else {
     UNREACHABLE();
   }
-  CHECK(wrap);
+  if(!(wrap)) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(wrap);");
+  }
 }
 
 
@@ -151,41 +156,63 @@ void JSStream::DoAlloc(const FunctionCallbackInfo<Value>& args) {
 
 
 void JSStream::DoRead(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   JSStream* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
-  CHECK(Buffer::HasInstance(args[1]));
+  if(!(Buffer::HasInstance(args[1]))) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(Buffer::HasInstance(args[1]));");
+  }
   uv_buf_t buf = uv_buf_init(Buffer::Data(args[1]), Buffer::Length(args[1]));
   wrap->OnRead(args[0]->Int32Value(), &buf);
 }
 
 
 void JSStream::DoAfterWrite(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   JSStream* wrap;
-  CHECK(args[0]->IsObject());
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
   WriteWrap* w;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
-  ASSIGN_OR_RETURN_UNWRAP(&w, args[0].As<Object>());
+  ASSIGN_OR_RETURN_UNWRAP(&w, args0);
 
   wrap->OnAfterWrite(w);
+return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 template <class Wrap>
 void JSStream::Finish(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Wrap* w;
-  CHECK(args[0]->IsObject());
-  ASSIGN_OR_RETURN_UNWRAP(&w, args[0].As<Object>());
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
+  ASSIGN_OR_RETURN_UNWRAP(&w, args0);
 
   w->Done(args[1]->Int32Value());
+return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 void JSStream::ReadBuffer(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   JSStream* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
-  CHECK(Buffer::HasInstance(args[0]));
+  if(!(Buffer::HasInstance(args[0]))) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(Buffer::HasInstance(args[0]));");
+  }
   char* data = Buffer::Data(args[0]);
   int len = Buffer::Length(args[0]);
 

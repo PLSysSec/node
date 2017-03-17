@@ -71,12 +71,12 @@ class ZCtx : public AsyncWrap {
   }
 
 
-  ~ZCtx() override {
+  ~ZCtx( ) override {
     CHECK_EQ(false, write_in_progress_ && "write in progress");
     Close();
   }
 
-  void Close() {
+  void Close( ) {
     if (write_in_progress_) {
       pending_close_ = true;
       return;
@@ -115,15 +115,26 @@ class ZCtx : public AsyncWrap {
   // write(flush, in, in_off, in_len, out, out_off, out_len)
   template <bool async>
   static void Write(const FunctionCallbackInfo<Value>& args) {
-    CHECK_EQ(args.Length(), 7);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(args.Length() != 7) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(args.Length(),7);");
+  }
 
     ZCtx* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Holder());
-    CHECK(ctx->init_done_ && "write before init");
-    CHECK(ctx->mode_ != NONE && "already finalized");
+    if(!(ctx->init_done_&&"write before init")) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(ctx->init_done_&&\"write before init\");");
+  }
+    if(!(ctx->mode_!=NONE&&"already finalized")) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(ctx->mode_!=NONE&&\"already finalized\");");
+  }
 
-    CHECK_EQ(false, ctx->write_in_progress_ && "write already in progress");
-    CHECK_EQ(false, ctx->pending_close_ && "close is pending");
+    if(false != ctx->write_in_progress_&&"write already in progress") {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(false,ctx->write_in_progress_&&\"write already in progress\");");
+  }
+    if(false != ctx->pending_close_&&"close is pending") {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(false,ctx->pending_close_&&\"close is pending\");");
+  }
     ctx->write_in_progress_ = true;
     ctx->Ref();
 
@@ -161,11 +172,15 @@ class ZCtx : public AsyncWrap {
       in = reinterpret_cast<Bytef *>(Buffer::Data(in_buf) + in_off);
     }
 
-    CHECK(Buffer::HasInstance(args[4]));
+    if(!(Buffer::HasInstance(args[4]))) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(Buffer::HasInstance(args[4]));");
+  }
     Local<Object> out_buf = args[4]->ToObject(env->isolate());
     out_off = args[5]->Uint32Value();
     out_len = args[6]->Uint32Value();
-    CHECK(Buffer::IsWithinBounds(out_off, out_len, Buffer::Length(out_buf)));
+    if(!(Buffer::IsWithinBounds(out_off,out_len,Buffer::Length(out_buf)))) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(Buffer::IsWithinBounds(out_off,out_len,Buffer::Length(out_buf)));");
+  }
     out = reinterpret_cast<Bytef *>(Buffer::Data(out_buf) + out_off);
 
     // build up the work request
@@ -410,7 +425,8 @@ class ZCtx : public AsyncWrap {
   }
 
   static void New(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     if (args.Length() < 1 || !args[0]->IsInt32()) {
       return env->ThrowTypeError("Bad argument");
@@ -426,27 +442,33 @@ class ZCtx : public AsyncWrap {
 
   // just pull the ints out of the args and call the other Init
   static void Init(const FunctionCallbackInfo<Value>& args) {
-    CHECK((args.Length() == 4 || args.Length() == 5) &&
-           "init(windowBits, level, memLevel, strategy, [dictionary])");
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!((args.Length()==4||args.Length()==5)&&"init(windowBits, level, memLevel, strategy, [dictionary])")) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK((args.Length()==4||args.Length()==5)&&\"init(windowBits, level, memLevel, strategy, [dictionary])\");");
+  }
 
     ZCtx* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Holder());
 
     int windowBits = args[0]->Uint32Value();
-    CHECK((windowBits >= 8 && windowBits <= 15) && "invalid windowBits");
+    if(!((windowBits>=8&&windowBits<=15)&&"invalid windowBits")) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK((windowBits>=8&&windowBits<=15)&&\"invalid windowBits\");");
+  }
 
     int level = args[1]->Int32Value();
-    CHECK((level >= -1 && level <= 9) && "invalid compression level");
+    if(!((level>=-1&&level<=9)&&"invalid compression level")) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK((level>=-1&&level<=9)&&\"invalid compression level\");");
+  }
 
     int memLevel = args[2]->Uint32Value();
-    CHECK((memLevel >= 1 && memLevel <= 9) && "invalid memlevel");
+    if(!((memLevel>=1&&memLevel<=9)&&"invalid memlevel")) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK((memLevel>=1&&memLevel<=9)&&\"invalid memlevel\");");
+  }
 
     int strategy = args[3]->Uint32Value();
-    CHECK((strategy == Z_FILTERED ||
-            strategy == Z_HUFFMAN_ONLY ||
-            strategy == Z_RLE ||
-            strategy == Z_FIXED ||
-            strategy == Z_DEFAULT_STRATEGY) && "invalid strategy");
+    if(!((strategy==Z_FILTERED||strategy==Z_HUFFMAN_ONLY||strategy==Z_RLE||strategy==Z_FIXED||strategy==Z_DEFAULT_STRATEGY)&&"invalid strategy")) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK((strategy==Z_FILTERED||strategy==Z_HUFFMAN_ONLY||strategy==Z_RLE||strategy==Z_FIXED||strategy==Z_DEFAULT_STRATEGY)&&\"invalid strategy\");");
+  }
 
     char* dictionary = nullptr;
     size_t dictionary_len = 0;
@@ -465,7 +487,10 @@ class ZCtx : public AsyncWrap {
   }
 
   static void Params(const FunctionCallbackInfo<Value>& args) {
-    CHECK(args.Length() == 2 && "params(level, strategy)");
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.Length()==2&&"params(level, strategy)")) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.Length()==2&&\"params(level, strategy)\");");
+  }
     ZCtx* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Holder());
     Params(ctx, args[0]->Int32Value(), args[1]->Int32Value());
@@ -611,16 +636,16 @@ class ZCtx : public AsyncWrap {
     }
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  private:
-  void Ref() {
+  void Ref( ) {
     if (++refs_ == 1) {
       ClearWeak();
     }
   }
 
-  void Unref() {
+  void Unref( ) {
     CHECK_GT(refs_, 0);
     if (--refs_ == 0) {
       MakeWeak<ZCtx>(this);

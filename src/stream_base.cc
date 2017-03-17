@@ -422,22 +422,22 @@ void StreamBase::EmitData(ssize_t nread,
 }
 
 
-bool StreamBase::IsIPCPipe() {
+bool StreamBase::IsIPCPipe( ) {
   return false;
 }
 
 
-int StreamBase::GetFD() {
+int StreamBase::GetFD( ) {
   return -1;
 }
 
 
-AsyncWrap* StreamBase::GetAsyncWrap() {
+AsyncWrap* StreamBase::GetAsyncWrap( ) {
   return nullptr;
 }
 
 
-Local<Object> StreamBase::GetObject() {
+Local<Object> StreamBase::GetObject( ) {
   return GetAsyncWrap()->object();
 }
 
@@ -448,12 +448,12 @@ int StreamResource::DoTryWrite(uv_buf_t** bufs, size_t* count) {
 }
 
 
-const char* StreamResource::Error() const {
+const char* StreamResource::Error( ) const {
   return nullptr;
 }
 
 
-void StreamResource::ClearError() {
+void StreamResource::ClearError( ) {
   // No-op
 }
 

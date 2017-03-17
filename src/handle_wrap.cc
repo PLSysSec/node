@@ -43,6 +43,7 @@ void HandleWrap::HasRef(const FunctionCallbackInfo<Value>& args) {
 
 
 void HandleWrap::Close(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   HandleWrap* wrap;
@@ -55,7 +56,9 @@ void HandleWrap::Close(const FunctionCallbackInfo<Value>& args) {
   if (wrap->state_ != kInitialized)
     return;
 
-  CHECK_EQ(false, wrap->persistent().IsEmpty());
+  if(false != wrap->persistent().IsEmpty()) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(false,wrap->persistent().IsEmpty());");
+  }
   uv_close(wrap->handle_, OnClose);
   wrap->state_ = kClosing;
 
@@ -81,7 +84,7 @@ HandleWrap::HandleWrap(Environment* env,
 }
 
 
-HandleWrap::~HandleWrap() {
+HandleWrap::~HandleWrap( ) {
   CHECK(persistent().IsEmpty());
 }
 

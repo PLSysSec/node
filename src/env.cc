@@ -91,7 +91,7 @@ void Environment::Start(int argc,
   LoadAsyncWrapperInfo(this);
 }
 
-void Environment::StartProfilerIdleNotifier() {
+void Environment::StartProfilerIdleNotifier( ) {
   uv_prepare_start(&idle_prepare_handle_, [](uv_prepare_t* handle) {
     Environment* env = ContainerOf(&Environment::idle_prepare_handle_, handle);
     env->isolate()->GetCpuProfiler()->SetIdle(true);
@@ -103,12 +103,12 @@ void Environment::StartProfilerIdleNotifier() {
   });
 }
 
-void Environment::StopProfilerIdleNotifier() {
+void Environment::StopProfilerIdleNotifier( ) {
   uv_prepare_stop(&idle_prepare_handle_);
   uv_check_stop(&idle_check_handle_);
 }
 
-void Environment::PrintSyncTrace() const {
+void Environment::PrintSyncTrace( ) const {
   if (!trace_sync_io_)
     return;
 

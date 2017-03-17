@@ -101,7 +101,7 @@ void SendVersionResponse(InspectorSocket* socket) {
   SendHttpResponse(socket, MapToString(response));
 }
 
-std::string GetProcessTitle() {
+std::string GetProcessTitle( ) {
   // uv_get_process_title will trim the title if it is too long.
   char title[2048];
   int err = uv_get_process_title(title, sizeof(title));
@@ -144,7 +144,7 @@ const char* match_path_segment(const char* path, const char* expected) {
 
 // UUID RFC: https://www.ietf.org/rfc/rfc4122.txt
 // Used ver 4 - with numbers
-std::string GenerateID() {
+std::string GenerateID( ) {
   uint16_t buffer[8];
   CHECK(crypto::EntropySource(reinterpret_cast<unsigned char*>(buffer),
                               sizeof(buffer)));
@@ -184,7 +184,7 @@ class AgentImpl {
   void Stop();
 
   bool IsStarted();
-  bool IsConnected() {  return state_ == State::kConnected; }
+  bool IsConnected( ) {  return state_ == State::kConnected; }
   void WaitForDisconnect();
 
   void FatalException(v8::Local<v8::Value> error,
@@ -269,7 +269,7 @@ class DispatchOnInspectorBackendTask : public v8::Task {
  public:
   explicit DispatchOnInspectorBackendTask(AgentImpl* agent) : agent_(agent) {}
 
-  void Run() override {
+  void Run( ) override {
     agent_->DispatchMessages();
   }
 
@@ -280,7 +280,7 @@ class DispatchOnInspectorBackendTask : public v8::Task {
 class ChannelImpl final : public blink::protocol::FrontendChannel {
  public:
   explicit ChannelImpl(AgentImpl* agent): agent_(agent) {}
-  virtual ~ChannelImpl() {}
+  virtual ~ChannelImpl( ) {}
  private:
   void sendProtocolResponse(int callId, const String16& message) override {
     sendMessageToFrontend(message);
@@ -290,7 +290,7 @@ class ChannelImpl final : public blink::protocol::FrontendChannel {
     sendMessageToFrontend(message);
   }
 
-  void flushProtocolNotifications() override { }
+  void flushProtocolNotifications( ) override { }
 
   void sendMessageToFrontend(const String16& message) {
     agent_->Write(agent_->frontend_session_id_, message);
@@ -332,19 +332,19 @@ class V8NodeInspector : public v8_inspector::V8InspectorClient {
     running_nested_loop_ = false;
   }
 
-  double currentTimeMS() override {
+  double currentTimeMS( ) override {
     return uv_hrtime() * 1.0 / NANOS_PER_MSEC;
   }
 
-  void quitMessageLoopOnPause() override {
+  void quitMessageLoopOnPause( ) override {
     terminated_ = true;
   }
 
-  void connectFrontend() {
+  void connectFrontend( ) {
     session_ = inspector_->connect(1, new ChannelImpl(agent_), nullptr);
   }
 
-  void disconnectFrontend() {
+  void disconnectFrontend( ) {
     session_.reset();
   }
 
@@ -358,7 +358,7 @@ class V8NodeInspector : public v8_inspector::V8InspectorClient {
     return env_->context();
   }
 
-  V8Inspector* inspector() {
+  V8Inspector* inspector( ) {
     return inspector_.get();
   }
 
@@ -391,7 +391,7 @@ AgentImpl::AgentImpl(Environment* env) : port_(0),
   uv_unref(reinterpret_cast<uv_handle_t*>(data_written_));
 }
 
-AgentImpl::~AgentImpl() {
+AgentImpl::~AgentImpl( ) {
   auto close_cb = [](uv_handle_t* handle) {
     delete reinterpret_cast<uv_async_t*>(handle);
   };
@@ -494,17 +494,17 @@ bool AgentImpl::Start(v8::Platform* platform, const char* path,
   return true;
 }
 
-void AgentImpl::Stop() {
+void AgentImpl::Stop( ) {
   int err = uv_thread_join(&thread_);
   CHECK_EQ(err, 0);
   delete inspector_;
 }
 
-bool AgentImpl::IsStarted() {
+bool AgentImpl::IsStarted( ) {
   return !!platform_;
 }
 
-void AgentImpl::WaitForDisconnect() {
+void AgentImpl::WaitForDisconnect( ) {
   shutting_down_ = true;
   fprintf(stderr, "Waiting for the debugger to disconnect...\n");
   fflush(stderr);
@@ -519,7 +519,7 @@ void AgentImpl::WaitForDisconnect() {
                            v8::ReadOnly).FromJust();                          \
   } while (0)
 
-void AgentImpl::InstallInspectorOnProcess() {
+void AgentImpl::InstallInspectorOnProcess( ) {
   auto env = parent_env_;
   v8::Local<v8::Object> process = env->process_object();
   v8::Local<v8::Object> inspector = v8::Object::New(env->isolate());
@@ -700,7 +700,7 @@ void AgentImpl::WriteCbIO(uv_async_t* async) {
   }
 }
 
-void AgentImpl::WorkerRunIO() {
+void AgentImpl::WorkerRunIO( ) {
   sockaddr_in addr;
   uv_tcp_t server;
   int err = uv_loop_init(&child_loop_);
@@ -769,13 +769,13 @@ void AgentImpl::PostIncomingMessage(const String16& message) {
   NotifyMessageReceived();
 }
 
-void AgentImpl::WaitForFrontendMessage() {
+void AgentImpl::WaitForFrontendMessage( ) {
   Mutex::ScopedLock scoped_lock(state_lock_);
   if (incoming_message_queue_.empty())
     incoming_message_cond_.Wait(scoped_lock);
 }
 
-void AgentImpl::NotifyMessageReceived() {
+void AgentImpl::NotifyMessageReceived( ) {
   Mutex::ScopedLock scoped_lock(state_lock_);
   incoming_message_cond_.Broadcast(scoped_lock);
 }
@@ -791,7 +791,7 @@ void AgentImpl::OnInspectorConnectionIO(InspectorSocket* socket) {
   PostIncomingMessage(String16(TAG_CONNECT, sizeof(TAG_CONNECT) - 1));
 }
 
-void AgentImpl::DispatchMessages() {
+void AgentImpl::DispatchMessages( ) {
   // This function can be reentered if there was an incoming message while
   // V8 was processing another inspector request (e.g. if the user is
   // evaluating a long-running JS code snippet). This can happen only at
@@ -839,7 +839,7 @@ void AgentImpl::Write(int session_id, const String16& message) {
 // Exported class Agent
 Agent::Agent(node::Environment* env) : impl(new AgentImpl(env)) {}
 
-Agent::~Agent() {
+Agent::~Agent( ) {
   delete impl;
 }
 
@@ -848,19 +848,19 @@ bool Agent::Start(v8::Platform* platform, const char* path,
   return impl->Start(platform, path, port, wait);
 }
 
-void Agent::Stop() {
+void Agent::Stop( ) {
   impl->Stop();
 }
 
-bool Agent::IsStarted() {
+bool Agent::IsStarted( ) {
   return impl->IsStarted();
 }
 
-bool Agent::IsConnected() {
+bool Agent::IsConnected( ) {
   return impl->IsConnected();
 }
 
-void Agent::WaitForDisconnect() {
+void Agent::WaitForDisconnect( ) {
   impl->WaitForDisconnect();
 }
 

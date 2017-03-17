@@ -608,7 +608,7 @@ bool inspector_is_active(const InspectorSocket* inspector) {
   return !inspector->shutting_down && !uv_is_closing(client);
 }
 
-void InspectorSocket::reinit() {
+void InspectorSocket::reinit( ) {
   http_parsing_state = nullptr;
   ws_state = nullptr;
   buffer.clear();

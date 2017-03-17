@@ -47,14 +47,17 @@ class TimerWrap : public HandleWrap {
                 constructor->GetFunction());
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  private:
   static void New(const FunctionCallbackInfo<Value>& args) {
     // This constructor should not be exposed to public javascript.
     // Therefore we assert that we are not trying to call this as a
     // normal function.
-    CHECK(args.IsConstructCall());
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
     Environment* env = Environment::GetCurrent(args);
     new TimerWrap(env, args.This());
   }
@@ -69,9 +72,12 @@ class TimerWrap : public HandleWrap {
   }
 
   static void Start(const FunctionCallbackInfo<Value>& args) {
-    TimerWrap* wrap = Unwrap<TimerWrap>(args.Holder());
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  TimerWrap* wrap = Unwrap<TimerWrap>(args.Holder());
 
-    CHECK(HandleWrap::IsAlive(wrap));
+    if(!(HandleWrap::IsAlive(wrap))) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(HandleWrap::IsAlive(wrap));");
+  }
 
     int64_t timeout = args[0]->IntegerValue();
     int err = uv_timer_start(&wrap->handle_, OnTimeout, timeout, 0);
@@ -79,9 +85,12 @@ class TimerWrap : public HandleWrap {
   }
 
   static void Stop(const FunctionCallbackInfo<Value>& args) {
-    TimerWrap* wrap = Unwrap<TimerWrap>(args.Holder());
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  TimerWrap* wrap = Unwrap<TimerWrap>(args.Holder());
 
-    CHECK(HandleWrap::IsAlive(wrap));
+    if(!(HandleWrap::IsAlive(wrap))) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(HandleWrap::IsAlive(wrap));");
+  }
 
     int err = uv_timer_stop(&wrap->handle_);
     args.GetReturnValue().Set(err);
@@ -96,10 +105,13 @@ class TimerWrap : public HandleWrap {
   }
 
   static void Now(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
     uv_update_time(env->event_loop());
     uint64_t now = uv_now(env->event_loop());
-    CHECK(now >= env->timer_base());
+    if(!(now>=env->timer_base())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(now>=env->timer_base());");
+  }
     now -= env->timer_base();
     if (now <= 0xfffffff)
       args.GetReturnValue().Set(static_cast<uint32_t>(now));

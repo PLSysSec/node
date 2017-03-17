@@ -31,13 +31,13 @@ class FSEventWrap: public HandleWrap {
   static void Start(const FunctionCallbackInfo<Value>& args);
   static void Close(const FunctionCallbackInfo<Value>& args);
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  private:
   static const encoding kDefaultEncoding = UTF8;
 
   FSEventWrap(Environment* env, Local<Object> object);
-  ~FSEventWrap() override;
+  ~FSEventWrap( ) override;
 
   static void OnEvent(uv_fs_event_t* handle, const char* filename, int events,
     int status);
@@ -55,7 +55,7 @@ FSEventWrap::FSEventWrap(Environment* env, Local<Object> object)
                  AsyncWrap::PROVIDER_FSEVENTWRAP) {}
 
 
-FSEventWrap::~FSEventWrap() {
+FSEventWrap::~FSEventWrap( ) {
   CHECK_EQ(initialized_, false);
 }
 
@@ -78,18 +78,24 @@ void FSEventWrap::Initialize(Local<Object> target,
 
 
 void FSEventWrap::New(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args.IsConstructCall());
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
   Environment* env = Environment::GetCurrent(args);
   new FSEventWrap(env, args.This());
 }
 
 
 void FSEventWrap::Start(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   FSEventWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
-  CHECK_EQ(wrap->initialized_, false);
+  if(wrap->initialized_ != false) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(wrap->initialized_,false);");
+  }
 
   static const char kErrMsg[] = "filename must be a string or Buffer";
   if (args.Length() < 1)

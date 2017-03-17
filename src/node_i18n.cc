@@ -148,15 +148,21 @@ int32_t ToASCII(MaybeStackBuffer<char>* buf,
 }
 
 static void ToUnicode(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
-  CHECK_GE(args.Length(), 1);
-  CHECK(args[0]->IsString());
+  if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0) -> safeV8::SafeV8Promise_Base {
   Utf8Value val(env->isolate(), args[0]);
   MaybeStackBuffer<char> buf;
   int32_t len = ToUnicode(&buf, *val, val.length());
 
   if (len < 0) {
-    return env->ThrowError("Cannot convert name to Unicode");
+    env->ThrowError("Cannot convert name to Unicode");
+    return safeV8::Done;
   }
 
   args.GetReturnValue().Set(
@@ -164,18 +170,29 @@ static void ToUnicode(const FunctionCallbackInfo<Value>& args) {
                           *buf,
                           v8::NewStringType::kNormal,
                           len).ToLocalChecked());
+return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 static void ToASCII(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
-  CHECK_GE(args.Length(), 1);
-  CHECK(args[0]->IsString());
+  if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0) -> safeV8::SafeV8Promise_Base {
   Utf8Value val(env->isolate(), args[0]);
   MaybeStackBuffer<char> buf;
   int32_t len = ToASCII(&buf, *val, val.length());
 
   if (len < 0) {
-    return env->ThrowError("Cannot convert name to ASCII");
+    env->ThrowError("Cannot convert name to ASCII");
+    return safeV8::Done;
   }
 
   args.GetReturnValue().Set(
@@ -183,6 +200,11 @@ static void ToASCII(const FunctionCallbackInfo<Value>& args) {
                           *buf,
                           v8::NewStringType::kNormal,
                           len).ToLocalChecked());
+return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 void Init(Local<Object> target,

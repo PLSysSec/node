@@ -38,11 +38,11 @@ class RetainedAsyncInfo: public RetainedObjectInfo {
  public:
   explicit RetainedAsyncInfo(uint16_t class_id, AsyncWrap* wrap);
 
-  void Dispose() override;
+  void Dispose( ) override;
   bool IsEquivalent(RetainedObjectInfo* other) override;
-  intptr_t GetHash() override;
-  const char* GetLabel() override;
-  intptr_t GetSizeInBytes() override;
+  intptr_t GetHash( ) override;
+  const char* GetLabel( ) override;
+  intptr_t GetSizeInBytes( ) override;
 
  private:
   const char* label_;
@@ -58,7 +58,7 @@ RetainedAsyncInfo::RetainedAsyncInfo(uint16_t class_id, AsyncWrap* wrap)
 }
 
 
-void RetainedAsyncInfo::Dispose() {
+void RetainedAsyncInfo::Dispose( ) {
   delete this;
 }
 
@@ -69,17 +69,17 @@ bool RetainedAsyncInfo::IsEquivalent(RetainedObjectInfo* other) {
 }
 
 
-intptr_t RetainedAsyncInfo::GetHash() {
+intptr_t RetainedAsyncInfo::GetHash( ) {
   return reinterpret_cast<intptr_t>(wrap_);
 }
 
 
-const char* RetainedAsyncInfo::GetLabel() {
+const char* RetainedAsyncInfo::GetLabel( ) {
   return label_;
 }
 
 
-intptr_t RetainedAsyncInfo::GetSizeInBytes() {
+intptr_t RetainedAsyncInfo::GetSizeInBytes( ) {
   return length_;
 }
 
@@ -119,6 +119,7 @@ static void DisableHooksJS(const FunctionCallbackInfo<Value>& args) {
 
 
 static void SetupHooks(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (env->async_hooks()->callbacks_enabled())

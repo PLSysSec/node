@@ -45,14 +45,17 @@ class ProcessWrap : public HandleWrap {
                 constructor->GetFunction());
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  private:
   static void New(const FunctionCallbackInfo<Value>& args) {
     // This constructor should not be exposed to public javascript.
     // Therefore we assert that we are not trying to call this as a
     // normal function.
-    CHECK(args.IsConstructCall());
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
     Environment* env = Environment::GetCurrent(args);
     new ProcessWrap(env, args.This());
   }
@@ -107,7 +110,8 @@ class ProcessWrap : public HandleWrap {
   }
 
   static void Spawn(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     ProcessWrap* wrap;
     ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
@@ -120,54 +124,84 @@ class ProcessWrap : public HandleWrap {
     options.exit_cb = OnExit;
 
     // options.uid
-    Local<Value> uid_v = js_options->Get(env->uid_string());
+      safeV8::GetField(isolate->GetCurrentContext(), js_options, env->uid_string())
+  .OnVal([&](Local<Value> js_options_envuid_string)-> safeV8::SafeV8Promise_Base {
+Local<Value> uid_v = js_options_envuid_string;
     if (uid_v->IsInt32()) {
       const int32_t uid = uid_v->Int32Value(env->context()).FromJust();
       options.flags |= UV_PROCESS_SETUID;
       options.uid = static_cast<uv_uid_t>(uid);
     } else if (!uid_v->IsUndefined() && !uid_v->IsNull()) {
-      return env->ThrowTypeError("options.uid should be a number");
+      env->ThrowTypeError("options.uid should be a number");
+    return safeV8::Done;
     }
 
     // options.gid
-    Local<Value> gid_v = js_options->Get(env->gid_string());
+          bool safeV8_Failed7 = false;
+    Local<Value> safeV8_exceptionThrown7;
+safeV8::GetField(isolate->GetCurrentContext(), js_options, env->gid_string())
+  .OnVal([&](Local<Value> js_options_envgid_string)-> safeV8::SafeV8Promise_Base {
+Local<Value> gid_v = js_options_envgid_string;
     if (gid_v->IsInt32()) {
       const int32_t gid = gid_v->Int32Value(env->context()).FromJust();
       options.flags |= UV_PROCESS_SETGID;
       options.gid = static_cast<uv_gid_t>(gid);
     } else if (!gid_v->IsUndefined() && !gid_v->IsNull()) {
-      return env->ThrowTypeError("options.gid should be a number");
+      env->ThrowTypeError("options.gid should be a number");
+    return safeV8::Done;
     }
 
     // TODO(bnoordhuis) is this possible to do without mallocing ?
 
     // options.file
-    Local<Value> file_v = js_options->Get(env->file_string());
+          bool safeV8_Failed6 = false;
+    Local<Value> safeV8_exceptionThrown6;
+safeV8::GetField(isolate->GetCurrentContext(), js_options, env->file_string())
+  .OnVal([&](Local<Value> js_options_envfile_string)-> safeV8::SafeV8Promise_Base {
+Local<Value> file_v = js_options_envfile_string;
     node::Utf8Value file(env->isolate(),
                          file_v->IsString() ? file_v : Local<Value>());
     if (file.length() > 0) {
       options.file = *file;
     } else {
-      return env->ThrowTypeError("Bad argument");
+      env->ThrowTypeError("Bad argument");
+    return safeV8::Done;
     }
 
     // options.args
-    Local<Value> argv_v = js_options->Get(env->args_string());
+          bool safeV8_Failed5 = false;
+    Local<Value> safeV8_exceptionThrown5;
+safeV8::GetField(isolate->GetCurrentContext(), js_options, env->args_string())
+  .OnVal([&](Local<Value> js_options_envargs_string)-> safeV8::SafeV8Promise_Base {
+Local<Value> argv_v = js_options_envargs_string;
     if (!argv_v.IsEmpty() && argv_v->IsArray()) {
       Local<Array> js_argv = Local<Array>::Cast(argv_v);
       int argc = js_argv->Length();
       // Heap allocate to detect errors. +1 is for nullptr.
       options.args = new char*[argc + 1];
       for (int i = 0; i < argc; i++) {
-        node::Utf8Value arg(env->isolate(), js_argv->Get(i));
+              bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::GetField(isolate->GetCurrentContext(), js_argv, i)
+  .OnVal([&](Local<Value> js_argv_i)-> safeV8::SafeV8Promise_Base {
+node::Utf8Value arg(env->isolate(), js_argv_i);
         options.args[i] = strdup(*arg);
         CHECK_NE(options.args[i], nullptr);
-      }
+      
+  return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+}
       options.args[argc] = nullptr;
     }
 
     // options.cwd
-    Local<Value> cwd_v = js_options->Get(env->cwd_string());
+          bool safeV8_Failed4 = false;
+    Local<Value> safeV8_exceptionThrown4;
+safeV8::GetField(isolate->GetCurrentContext(), js_options, env->cwd_string())
+  .OnVal([&](Local<Value> js_options_envcwd_string)-> safeV8::SafeV8Promise_Base {
+Local<Value> cwd_v = js_options_envcwd_string;
     node::Utf8Value cwd(env->isolate(),
                         cwd_v->IsString() ? cwd_v : Local<Value>());
     if (cwd.length() > 0) {
@@ -175,16 +209,29 @@ class ProcessWrap : public HandleWrap {
     }
 
     // options.env
-    Local<Value> env_v = js_options->Get(env->env_pairs_string());
+          bool safeV8_Failed3 = false;
+    Local<Value> safeV8_exceptionThrown3;
+safeV8::GetField(isolate->GetCurrentContext(), js_options, env->env_pairs_string())
+  .OnVal([&](Local<Value> js_options_envenv_pairs_string)-> safeV8::SafeV8Promise_Base {
+Local<Value> env_v = js_options_envenv_pairs_string;
     if (!env_v.IsEmpty() && env_v->IsArray()) {
       Local<Array> env_opt = Local<Array>::Cast(env_v);
       int envc = env_opt->Length();
       options.env = new char*[envc + 1];  // Heap allocated to detect errors.
       for (int i = 0; i < envc; i++) {
-        node::Utf8Value pair(env->isolate(), env_opt->Get(i));
+              bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::GetField(isolate->GetCurrentContext(), env_opt, i)
+  .OnVal([&](Local<Value> env_opt_i)-> safeV8::SafeV8Promise_Base {
+node::Utf8Value pair(env->isolate(), env_opt_i);
         options.env[i] = strdup(*pair);
         CHECK_NE(options.env[i], nullptr);
-      }
+      
+  return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+}
       options.env[envc] = nullptr;
     }
 
@@ -225,7 +272,38 @@ class ProcessWrap : public HandleWrap {
     delete[] options.stdio;
 
     args.GetReturnValue().Set(err);
-  }
+  
+  return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
+    if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+  return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed4 = true; safeV8_exceptionThrown4 = exception; });
+    if(safeV8_Failed4) return safeV8::Err(safeV8_exceptionThrown4);
+
+  return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed5 = true; safeV8_exceptionThrown5 = exception; });
+    if(safeV8_Failed5) return safeV8::Err(safeV8_exceptionThrown5);
+
+  return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed6 = true; safeV8_exceptionThrown6 = exception; });
+    if(safeV8_Failed6) return safeV8::Err(safeV8_exceptionThrown6);
+
+  return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed7 = true; safeV8_exceptionThrown7 = exception; });
+    if(safeV8_Failed7) return safeV8::Err(safeV8_exceptionThrown7);
+
+  return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   static void Kill(const FunctionCallbackInfo<Value>& args) {
     ProcessWrap* wrap;

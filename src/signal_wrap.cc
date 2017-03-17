@@ -39,14 +39,17 @@ class SignalWrap : public HandleWrap {
                 constructor->GetFunction());
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  private:
   static void New(const FunctionCallbackInfo<Value>& args) {
     // This constructor should not be exposed to public javascript.
     // Therefore we assert that we are not trying to call this as a
     // normal function.
-    CHECK(args.IsConstructCall());
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
     Environment* env = Environment::GetCurrent(args);
     new SignalWrap(env, args.This());
   }

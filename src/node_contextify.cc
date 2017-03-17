@@ -66,27 +66,27 @@ class ContextifyContext {
   }
 
 
-  ~ContextifyContext() {
+  ~ContextifyContext( ) {
     context_.Reset();
   }
 
 
-  inline Environment* env() const {
+  inline Environment* env( ) const {
     return env_;
   }
 
 
-  inline Local<Context> context() const {
+  inline Local<Context> context( ) const {
     return PersistentToLocal(env()->isolate(), context_);
   }
 
 
-  inline Local<Object> global_proxy() const {
+  inline Local<Object> global_proxy( ) const {
     return context()->Global();
   }
 
 
-  inline Local<Object> sandbox() const {
+  inline Local<Object> sandbox( ) const {
     return Local<Object>::Cast(context()->GetEmbedderData(kSandboxObjectIndex));
   }
 
@@ -111,7 +111,7 @@ class ContextifyContext {
   // weren't supported by Node's VM module until 0.12 anyway.  But, this
   // should be fixed properly in V8, and this copy function should be
   // removed once there is a better way.
-  void CopyProperties() {
+  void CopyProperties( ) {
     HandleScope scope(env()->isolate());
 
     Local<Context> context = PersistentToLocal(env()->isolate(), context_);
@@ -236,7 +236,8 @@ class ContextifyContext {
 
 
   static void RunInDebugContext(const FunctionCallbackInfo<Value>& args) {
-    Local<String> script_source(args[0]->ToString(args.GetIsolate()));
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Local<String> script_source(args[0]->ToString(args.GetIsolate()));
     if (script_source.IsEmpty())
       return;  // Exception pending.
     Local<Context> debug_context = Debug::GetDebugContext(args.GetIsolate());
@@ -265,7 +266,8 @@ class ContextifyContext {
 
 
   static void MakeContext(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     if (!args[0]->IsObject()) {
       return env->ThrowTypeError("sandbox argument must be an object.");
@@ -273,10 +275,9 @@ class ContextifyContext {
     Local<Object> sandbox = args[0].As<Object>();
 
     // Don't allow contextifying a sandbox multiple times.
-    CHECK(
-        !sandbox->HasPrivate(
-            env->context(),
-            env->contextify_context_private_symbol()).FromJust());
+    if(!(!sandbox->HasPrivate(env->context(),env->contextify_context_private_symbol()).FromJust())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(!sandbox->HasPrivate(env->context(),env->contextify_context_private_symbol()).FromJust());");
+  }
 
     TryCatch try_catch(env->isolate());
     ContextifyContext* context = new ContextifyContext(env, sandbox);
@@ -297,7 +298,8 @@ class ContextifyContext {
 
 
   static void IsContext(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     if (!args[0]->IsObject()) {
       env->ThrowTypeError("sandbox must be an object");
@@ -576,7 +578,8 @@ class ContextifyScript : public BaseObject {
 
   // args: sandbox, [options]
   static void RunInContext(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     int64_t timeout;
     bool display_errors;
@@ -887,7 +890,7 @@ class ContextifyScript : public BaseObject {
   }
 
 
-  ~ContextifyScript() override {
+  ~ContextifyScript( ) override {
     script_.Reset();
   }
 };

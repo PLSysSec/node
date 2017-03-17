@@ -1300,17 +1300,18 @@ namespace url {
   }
 
   static void Parse(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    CHECK_GE(args.Length(), 5);
-    CHECK(args[0]->IsString());
-    CHECK(args[2]->IsUndefined() ||
-          args[2]->IsNull() ||
-          args[2]->IsObject());
-    CHECK(args[3]->IsUndefined() ||
-          args[3]->IsNull() ||
-          args[3]->IsObject());
-    CHECK(args[4]->IsFunction());
-    Utf8Value input(env->isolate(), args[0]);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
+    if(args.Length() < 5) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),5);");
+  }
+    
+    
+    
+    
+    safeV8::With(isolate, args[0], args[2], args[2], args[2], args[3], args[3], args[3], args[4])
+  .OnVal([&](Local<String> args0, Local<Undefined> args2, Local<Null> args2, Local<Object> args2, Local<Undefined> args3, Local<Null> args3, Local<Object> args3, Local<Function> args4) -> safeV8::SafeV8Promise_Base {
+  Utf8Value input(env->isolate(), args[0]);
     enum url_parse_state override1 = kUnknownState;
     if (args[1]->IsNumber())
       override1 = (enum url_parse_state)(args[1]->Uint32Value());
@@ -1318,16 +1319,26 @@ namespace url {
     Parse(env, args.This(),
           *input, input.length(),
           override1,
-          args[2].As<Object>(),
-          args[3].As<Object>(),
-          args[4].As<Function>());
-  }
+          args2,
+          args3,
+          args4);
+  return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   static void EncodeAuthSet(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    CHECK_GE(args.Length(), 1);
-    CHECK(args[0]->IsString());
-    Utf8Value value(env->isolate(), args[0]);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
+    if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+    
+    safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0) -> safeV8::SafeV8Promise_Base {
+  Utf8Value value(env->isolate(), args[0]);
     std::string output;
     const size_t len = value.length();
     output.reserve(len);
@@ -1339,13 +1350,23 @@ namespace url {
         String::NewFromUtf8(env->isolate(),
                             output.c_str(),
                             v8::NewStringType::kNormal).ToLocalChecked());
-  }
+  return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   static void DomainToASCII(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    CHECK_GE(args.Length(), 1);
-    CHECK(args[0]->IsString());
-    Utf8Value value(env->isolate(), args[0]);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
+    if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+    
+    safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0) -> safeV8::SafeV8Promise_Base {
+  Utf8Value value(env->isolate(), args[0]);
 
     url_host host{{""}, HOST_TYPE_DOMAIN};
     ParseHost(&host, *value, value.length());
@@ -1359,13 +1380,23 @@ namespace url {
         String::NewFromUtf8(env->isolate(),
                             out.c_str(),
                             v8::NewStringType::kNormal).ToLocalChecked());
-  }
+  return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   static void DomainToUnicode(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    CHECK_GE(args.Length(), 1);
-    CHECK(args[0]->IsString());
-    Utf8Value value(env->isolate(), args[0]);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
+    if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+    
+    safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0) -> safeV8::SafeV8Promise_Base {
+  Utf8Value value(env->isolate(), args[0]);
 
     url_host host{{""}, HOST_TYPE_DOMAIN};
     ParseHost(&host, *value, value.length(), true);
@@ -1379,7 +1410,12 @@ namespace url {
         String::NewFromUtf8(env->isolate(),
                             out.c_str(),
                             v8::NewStringType::kNormal).ToLocalChecked());
-  }
+  return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   static void Init(Local<Object> target,
                    Local<Value> unused,

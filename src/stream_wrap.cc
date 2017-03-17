@@ -81,7 +81,7 @@ void StreamWrap::AddMethods(Environment* env,
 }
 
 
-int StreamWrap::GetFD() {
+int StreamWrap::GetFD( ) {
   int fd = -1;
 #if !defined(_WIN32)
   if (stream() != nullptr)
@@ -91,32 +91,32 @@ int StreamWrap::GetFD() {
 }
 
 
-bool StreamWrap::IsAlive() {
+bool StreamWrap::IsAlive( ) {
   return HandleWrap::IsAlive(this);
 }
 
 
-bool StreamWrap::IsClosing() {
+bool StreamWrap::IsClosing( ) {
   return uv_is_closing(reinterpret_cast<uv_handle_t*>(stream()));
 }
 
 
-void* StreamWrap::Cast() {
+void* StreamWrap::Cast( ) {
   return reinterpret_cast<void*>(this);
 }
 
 
-AsyncWrap* StreamWrap::GetAsyncWrap() {
+AsyncWrap* StreamWrap::GetAsyncWrap( ) {
   return static_cast<AsyncWrap*>(this);
 }
 
 
-bool StreamWrap::IsIPCPipe() {
+bool StreamWrap::IsIPCPipe( ) {
   return is_named_pipe_ipc();
 }
 
 
-void StreamWrap::UpdateWriteQueueSize() {
+void StreamWrap::UpdateWriteQueueSize( ) {
   HandleScope scope(env()->isolate());
   Local<Integer> write_queue_size =
       Integer::NewFromUnsigned(env()->isolate(), stream()->write_queue_size);
@@ -124,12 +124,12 @@ void StreamWrap::UpdateWriteQueueSize() {
 }
 
 
-int StreamWrap::ReadStart() {
+int StreamWrap::ReadStart( ) {
   return uv_read_start(stream(), OnAlloc, OnRead);
 }
 
 
-int StreamWrap::ReadStop() {
+int StreamWrap::ReadStop( ) {
   return uv_read_stop(stream());
 }
 
@@ -256,10 +256,13 @@ void StreamWrap::OnRead(uv_stream_t* handle,
 
 
 void StreamWrap::SetBlocking(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   StreamWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
-  CHECK_GT(args.Length(), 0);
+  if(args.Length() <= 0) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GT(args.Length(),0);");
+  }
   if (!wrap->IsAlive())
     return args.GetReturnValue().Set(UV_EINVAL);
 

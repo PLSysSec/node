@@ -21,7 +21,7 @@ const BIO_METHOD NodeBIO::method = {
 };
 
 
-BIO* NodeBIO::New() {
+BIO* NodeBIO::New( ) {
   // The const_cast doesn't violate const correctness.  OpenSSL's usage of
   // BIO_METHOD is effectively const but BIO_new() takes a non-const argument.
   return BIO_new(const_cast<BIO_METHOD*>(&method));
@@ -220,7 +220,7 @@ long NodeBIO::Ctrl(BIO* bio, int cmd, long num,  // NOLINT(runtime/int)
 }
 
 
-void NodeBIO::TryMoveReadHead() {
+void NodeBIO::TryMoveReadHead( ) {
   // `read_pos_` and `write_pos_` means the position of the reader and writer
   // inside the buffer, respectively. When they're equal - its safe to reset
   // them, because both reader and writer will continue doing their stuff
@@ -273,7 +273,7 @@ size_t NodeBIO::Read(char* out, size_t size) {
 }
 
 
-void NodeBIO::FreeEmpty() {
+void NodeBIO::FreeEmpty( ) {
   if (write_head_ == nullptr)
     return;
   Buffer* child = write_head_->next_;
@@ -434,7 +434,7 @@ void NodeBIO::TryAllocateForWrite(size_t hint) {
 }
 
 
-void NodeBIO::Reset() {
+void NodeBIO::Reset( ) {
   if (read_head_ == nullptr)
     return;
 
@@ -452,7 +452,7 @@ void NodeBIO::Reset() {
 }
 
 
-NodeBIO::~NodeBIO() {
+NodeBIO::~NodeBIO( ) {
   if (read_head_ == nullptr)
     return;
 

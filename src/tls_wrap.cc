@@ -72,7 +72,7 @@ TLSWrap::TLSWrap(Environment* env,
 }
 
 
-TLSWrap::~TLSWrap() {
+TLSWrap::~TLSWrap( ) {
   enc_in_ = nullptr;
   enc_out_ = nullptr;
   delete clear_in_;
@@ -88,7 +88,7 @@ TLSWrap::~TLSWrap() {
 }
 
 
-void TLSWrap::MakePending() {
+void TLSWrap::MakePending( ) {
   write_item_queue_.MoveBack(&pending_write_items_);
 }
 
@@ -109,12 +109,12 @@ bool TLSWrap::InvokeQueued(int status, const char* error_str) {
 }
 
 
-void TLSWrap::NewSessionDoneCb() {
+void TLSWrap::NewSessionDoneCb( ) {
   Cycle();
 }
 
 
-void TLSWrap::InitSSL() {
+void TLSWrap::InitSSL( ) {
   // Initialize SSL
   enc_in_ = NodeBIO::New();
   enc_out_ = NodeBIO::New();
@@ -162,38 +162,56 @@ void TLSWrap::InitSSL() {
 
 
 void TLSWrap::Wrap(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<External> args0) -> safeV8::SafeV8Promise_Base {
   Environment* env = Environment::GetCurrent(args);
 
   if (args.Length() < 1 || !args[0]->IsObject()) {
-    return env->ThrowTypeError(
+    env->ThrowTypeError(
         "First argument should be a StreamWrap instance");
+    return safeV8::Done;
   }
   if (args.Length() < 2 || !args[1]->IsObject()) {
-    return env->ThrowTypeError(
+    env->ThrowTypeError(
         "Second argument should be a SecureContext instance");
+    return safeV8::Done;
   }
   if (args.Length() < 3 || !args[2]->IsBoolean())
-    return env->ThrowTypeError("Third argument should be boolean");
+    env->ThrowTypeError("Third argument should be boolean");
+    return safeV8::Done;
 
-  Local<External> stream_obj = args[0].As<External>();
+  Local<External> stream_obj = args0;
   Local<Object> sc = args[1].As<Object>();
   Kind kind = args[2]->IsTrue() ? SSLWrap<TLSWrap>::kServer :
                                   SSLWrap<TLSWrap>::kClient;
 
   StreamBase* stream = static_cast<StreamBase*>(stream_obj->Value());
-  CHECK_NE(stream, nullptr);
+  if(stream == nullptr) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_NE(stream,nullptr);");
+    return safeV8::Done;
+  }
 
   TLSWrap* res = new TLSWrap(env, kind, stream, Unwrap<SecureContext>(sc));
 
   args.GetReturnValue().Set(res->object());
+return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 void TLSWrap::Receive(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   TLSWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
-  CHECK(Buffer::HasInstance(args[0]));
+  if(!(Buffer::HasInstance(args[0]))) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(Buffer::HasInstance(args[0]));");
+  }
   char* data = Buffer::Data(args[0]);
   size_t len = Buffer::Length(args[0]);
 
@@ -214,6 +232,7 @@ void TLSWrap::Receive(const FunctionCallbackInfo<Value>& args) {
 
 
 void TLSWrap::Start(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   TLSWrap* wrap;
@@ -224,7 +243,9 @@ void TLSWrap::Start(const FunctionCallbackInfo<Value>& args) {
   wrap->started_ = true;
 
   // Send ClientHello handshake
-  CHECK(wrap->is_client());
+  if(!(wrap->is_client())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(wrap->is_client());");
+  }
   wrap->ClearOut();
   wrap->EncOut();
 }
@@ -258,7 +279,7 @@ void TLSWrap::SSLInfoCallback(const SSL* ssl_, int where, int ret) {
 }
 
 
-void TLSWrap::EncOut() {
+void TLSWrap::EncOut( ) {
   // Ignore cycling data if ClientHello wasn't yet parsed
   if (!hello_parser_.IsEnded())
     return;
@@ -392,7 +413,7 @@ Local<Value> TLSWrap::GetSSLError(int status, int* err, const char** msg) {
 }
 
 
-void TLSWrap::ClearOut() {
+void TLSWrap::ClearOut( ) {
   // Ignore cycling data if ClientHello wasn't yet parsed
   if (!hello_parser_.IsEnded())
     return;
@@ -459,7 +480,7 @@ void TLSWrap::ClearOut() {
 }
 
 
-bool TLSWrap::ClearIn() {
+bool TLSWrap::ClearIn( ) {
   // Ignore cycling data if ClientHello wasn't yet parsed
   if (!hello_parser_.IsEnded())
     return false;
@@ -501,52 +522,52 @@ bool TLSWrap::ClearIn() {
 }
 
 
-void* TLSWrap::Cast() {
+void* TLSWrap::Cast( ) {
   return reinterpret_cast<void*>(this);
 }
 
 
-AsyncWrap* TLSWrap::GetAsyncWrap() {
+AsyncWrap* TLSWrap::GetAsyncWrap( ) {
   return static_cast<AsyncWrap*>(this);
 }
 
 
-bool TLSWrap::IsIPCPipe() {
+bool TLSWrap::IsIPCPipe( ) {
   return stream_->IsIPCPipe();
 }
 
 
-int TLSWrap::GetFD() {
+int TLSWrap::GetFD( ) {
   return stream_->GetFD();
 }
 
 
-bool TLSWrap::IsAlive() {
+bool TLSWrap::IsAlive( ) {
   return ssl_ != nullptr && stream_->IsAlive();
 }
 
 
-bool TLSWrap::IsClosing() {
+bool TLSWrap::IsClosing( ) {
   return stream_->IsClosing();
 }
 
 
-int TLSWrap::ReadStart() {
+int TLSWrap::ReadStart( ) {
   return stream_->ReadStart();
 }
 
 
-int TLSWrap::ReadStop() {
+int TLSWrap::ReadStop( ) {
   return stream_->ReadStop();
 }
 
 
-const char* TLSWrap::Error() const {
+const char* TLSWrap::Error( ) const {
   return error_;
 }
 
 
-void TLSWrap::ClearError() {
+void TLSWrap::ClearError( ) {
   delete[] error_;
   error_ = nullptr;
 }
@@ -732,6 +753,7 @@ int TLSWrap::DoShutdown(ShutdownWrap* req_wrap) {
 
 
 void TLSWrap::SetVerifyMode(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   TLSWrap* wrap;
@@ -814,12 +836,15 @@ void TLSWrap::OnClientHelloParseEnd(void* arg) {
 
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
 void TLSWrap::GetServername(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   TLSWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
-  CHECK_NE(wrap->ssl_, nullptr);
+  if(wrap->ssl_ == nullptr) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_NE(wrap->ssl_,nullptr);");
+  }
 
   const char* servername = SSL_get_servername(wrap->ssl_,
                                               TLSEXT_NAMETYPE_host_name);
@@ -832,6 +857,7 @@ void TLSWrap::GetServername(const FunctionCallbackInfo<Value>& args) {
 
 
 void TLSWrap::SetServername(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   TLSWrap* wrap;
@@ -846,7 +872,9 @@ void TLSWrap::SetServername(const FunctionCallbackInfo<Value>& args) {
   if (!wrap->is_client())
     return;
 
-  CHECK_NE(wrap->ssl_, nullptr);
+  if(wrap->ssl_ == nullptr) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_NE(wrap->ssl_,nullptr);");
+  }
 
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
   node::Utf8Value servername(env->isolate(), args[0].As<String>());

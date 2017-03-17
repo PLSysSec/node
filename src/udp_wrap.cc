@@ -33,9 +33,9 @@ using v8::Value;
 class SendWrap : public ReqWrap<uv_udp_send_t> {
  public:
   SendWrap(Environment* env, Local<Object> req_wrap_obj, bool have_callback);
-  inline bool have_callback() const;
+  inline bool have_callback( ) const;
   size_t msg_size;
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
  private:
   const bool have_callback_;
 };
@@ -50,13 +50,16 @@ SendWrap::SendWrap(Environment* env,
 }
 
 
-inline bool SendWrap::have_callback() const {
+inline bool SendWrap::have_callback( ) const {
   return have_callback_;
 }
 
 
 static void NewSendWrap(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args.IsConstructCall());
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
 }
 
 
@@ -122,7 +125,10 @@ void UDPWrap::Initialize(Local<Object> target,
 
 
 void UDPWrap::New(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args.IsConstructCall());
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
   Environment* env = Environment::GetCurrent(args);
   if (args.Length() == 0) {
     new UDPWrap(env, args.This(), nullptr);
@@ -149,13 +155,16 @@ void UDPWrap::GetFD(Local<String>, const PropertyCallbackInfo<Value>& args) {
 
 
 void UDPWrap::DoBind(const FunctionCallbackInfo<Value>& args, int family) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   UDPWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap,
                           args.Holder(),
                           args.GetReturnValue().Set(UV_EBADF));
 
   // bind(ip, port, flags)
-  CHECK_EQ(args.Length(), 3);
+  if(args.Length() != 3) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(args.Length(),3);");
+  }
 
   node::Utf8Value address(args.GetIsolate(), args[0]);
   const int port = args[1]->Uint32Value();
@@ -214,12 +223,15 @@ X(SetMulticastLoopback, uv_udp_set_multicast_loop)
 
 void UDPWrap::SetMembership(const FunctionCallbackInfo<Value>& args,
                             uv_membership membership) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   UDPWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap,
                           args.Holder(),
                           args.GetReturnValue().Set(UV_EBADF));
 
-  CHECK_EQ(args.Length(), 2);
+  if(args.Length() != 2) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(args.Length(),2);");
+  }
 
   node::Utf8Value address(args.GetIsolate(), args[0]);
   node::Utf8Value iface(args.GetIsolate(), args[1]);
@@ -248,6 +260,7 @@ void UDPWrap::DropMembership(const FunctionCallbackInfo<Value>& args) {
 
 
 void UDPWrap::DoSend(const FunctionCallbackInfo<Value>& args, int family) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   UDPWrap* wrap;
@@ -256,15 +269,17 @@ void UDPWrap::DoSend(const FunctionCallbackInfo<Value>& args, int family) {
                           args.GetReturnValue().Set(UV_EBADF));
 
   // send(req, list, list.length, port, address, hasCallback)
-  CHECK(args[0]->IsObject());
-  CHECK(args[1]->IsArray());
-  CHECK(args[2]->IsUint32());
-  CHECK(args[3]->IsUint32());
-  CHECK(args[4]->IsString());
-  CHECK(args[5]->IsBoolean());
+  
+  
+  
+  
+  
+  
 
-  Local<Object> req_wrap_obj = args[0].As<Object>();
-  Local<Array> chunks = args[1].As<Array>();
+  safeV8::With(isolate, args[0], args[1], args[2], args[3], args[4], args[5])
+  .OnVal([&](Local<Object> args0, Local<Array> args1, Local<Uint32> args2, Local<Uint32> args3, Local<String> args4, Local<Boolean> args5) -> safeV8::SafeV8Promise_Base {
+  Local<Object> req_wrap_obj = args0;
+  Local<Array> chunks = args1;
   // it is faster to fetch the length of the
   // array in js-land
   size_t count = args[2]->Uint32Value();
@@ -279,13 +294,22 @@ void UDPWrap::DoSend(const FunctionCallbackInfo<Value>& args, int family) {
 
   // construct uv_buf_t array
   for (size_t i = 0; i < count; i++) {
-    Local<Value> chunk = chunks->Get(i);
+          bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::GetField(isolate->GetCurrentContext(), chunks, i)
+  .OnVal([&](Local<Value> chunks_i)-> safeV8::SafeV8Promise_Base {
+Local<Value> chunk = chunks_i;
 
     size_t length = Buffer::Length(chunk);
 
     bufs[i] = uv_buf_init(Buffer::Data(chunk), length);
     msg_size += length;
-  }
+  
+  return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+}
 
   req_wrap->msg_size = msg_size;
 
@@ -318,6 +342,11 @@ void UDPWrap::DoSend(const FunctionCallbackInfo<Value>& args, int family) {
     delete req_wrap;
 
   args.GetReturnValue().Set(err);
+return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -427,7 +456,7 @@ Local<Object> UDPWrap::Instantiate(Environment* env, AsyncWrap* parent) {
 }
 
 
-uv_udp_t* UDPWrap::UVHandle() {
+uv_udp_t* UDPWrap::UVHandle( ) {
   return &handle_;
 }
 

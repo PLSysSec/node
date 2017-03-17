@@ -146,16 +146,7 @@ class ContextifyContext {
         // that can be done using Object.defineProperty.
         if (clone_property_method.IsEmpty()) {
           Local<String> code = FIXED_ONE_BYTE_STRING(env()->isolate(),
-              //"(function cloneProperty(source, key, target) {\n"
-              //"  if (key === 'Proxy') return;\n"
-              //"  try {\n"
-              //"    var desc = Object.getOwnPropertyDescriptor(source, key);\n"
-              //"    if (desc.value === source) desc.value = target;\n"
-              //"    Object.defineProperty(target, key, desc);\n"
-              //"  } catch (e) {\n"
-              //"   // Catch sealed properties errors\n"
-              //"  }\n"
-              "})");
+              "(function cloneProperty(source, key, target) {\n  if (key === 'Proxy') return;\n  try {\n    var desc = Object.getOwnPropertyDescriptor(source, key);\n    if (desc.value === source) desc.value = target;\n    Object.defineProperty(target, key, desc);\n  } catch (e) {\n   // Catch sealed properties errors\n  }\n})");
 
           Local<Script> script =
               Script::Compile(context, code).ToLocalChecked();

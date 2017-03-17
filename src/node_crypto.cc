@@ -91,9 +91,7 @@ using v8::Value;
 // certverifier/NSSCertDBTrustDomain.cpp#l672
 // C = CN, O = CNNIC, CN = CNNIC ROOT
 static const uint8_t CNNIC_ROOT_CA_SUBJECT_DATA[] =
-    //"\x30\x32\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x43\x4E\x31\x0E\x30"
-    //"\x0C\x06\x03\x55\x04\x0A\x13\x05\x43\x4E\x4E\x49\x43\x31\x13\x30\x11\x06"
-    "\x03\x55\x04\x03\x13\x0A\x43\x4E\x4E\x49\x43\x20\x52\x4F\x4F\x54";
+    "\x30\x32\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x43\x4E\x31\x0E\x30\x0C\x06\x03\x55\x04\x0A\x13\x05\x43\x4E\x4E\x49\x43\x31\x13\x30\x11\x06\x03\x55\x04\x03\x13\x0A\x43\x4E\x4E\x49\x43\x20\x52\x4F\x4F\x54";
 static const uint8_t* cnnic_p = CNNIC_ROOT_CA_SUBJECT_DATA;
 static X509_NAME* cnnic_name =
     d2i_X509_NAME(nullptr, &cnnic_p, sizeof(CNNIC_ROOT_CA_SUBJECT_DATA)-1);
@@ -497,7 +495,7 @@ int SSL_CTX_get_issuer(SSL_CTX* ctx, X509* cert, X509** issuer) {
 
 int SSL_CTX_use_certificate_chain(SSL_CTX* ctx,
                                   X509* x,
-                                  //STACK_OF(X509)* extra_certs,
+                                  stack_st_X509* extra_certs,
                                   X509** cert,
                                   X509** issuer) {
   CHECK_EQ(*issuer, nullptr);
@@ -1515,8 +1513,8 @@ static Local<Object> X509ToObject(Environment* env, X509* cert) {
               OneByteString(env->isolate(), fingerprint));
   }
 
-  /*STACK_OF(ASN1_OBJECT)* eku = static_cast<STACK_OF(ASN1_OBJECT)*>(
-      X509_get_ext_d2i(cert, NID_ext_key_usage, nullptr, nullptr));*/
+  stack_st_ASN1_OBJECT* eku = static_cast<stack_st_ASN1_OBJECT*>(
+      X509_get_ext_d2i(cert, NID_ext_key_usage, nullptr, nullptr));
   if (eku != nullptr) {
     Local<Array> ext_key_usage = Array::New(env->isolate());
     char buf[256];
@@ -2668,7 +2666,7 @@ inline int IsSelfSigned(X509* cert) {
 }
 
 
-inline X509* FindRoot(/*STACK_OF(X509)* sk*/) {
+inline X509* FindRoot(stack_st_X509* sk) {
   for (int i = 0; i < sk_X509_num(sk); i++) {
     X509* cert = sk_X509_value(sk, i);
     if (IsSelfSigned(cert))

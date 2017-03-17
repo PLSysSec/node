@@ -94,6 +94,11 @@ typedef int mode_t;
 extern char **environ;
 #endif
 
+#define CONCATSTR2(STR1, STR2) STR1 STR2
+#define CONCATSTR3(STR1, STR2, STR3) STR1 STR2 STR3
+#define CONCATSTR4(STR1, STR2, STR3, STR4) STR1 STR2 STR3 STR4
+#define CONCATSTR5(STR1, STR2, STR3, STR4, STR5) STR1 STR2 STR3 STR4 STR5
+
 namespace node {
 
 using v8::Array;
@@ -2360,7 +2365,7 @@ struct node_module* get_linked_module(const char* name) {
   return mp;
 }
 
-//typedef void (UV_DYNAMIC* extInit)(Local<Object> exports);
+typedef void (UV_DYNAMIC* extInit)(Local<Object> exports);
 
 // DLOpen is process.dlopen(module, filename).
 // Used to load 'module.node' dynamically shared objects.
@@ -2409,12 +2414,7 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
     char errmsg[1024];
     snprintf(errmsg,
              sizeof(errmsg),
-             "The module '%s'"
-             /*"\nwas compiled against a different Node.js version using"
-             "\nNODE_MODULE_VERSION %d. This version of Node.js requires"
-             "\nNODE_MODULE_VERSION %d. Please try re-compiling or "
-             "re-installing\nthe module (for instance, using `npm rebuild` or"
-             "`npm install`)."*/,
+             "The module '%s'\nwas compiled against a different Node.js version using\nNODE_MODULE_VERSION %d. This version of Node.js requires\nNODE_MODULE_VERSION %d. Please try re-compiling or re-installing\nthe module (for instance, using `npm rebuild` or`npm install`).",
              *filename, mp->nm_version, NODE_MODULE_VERSION);
 
     // NOTE: `mp` is allocated inside of the shared library's memory, calling
@@ -3002,11 +3002,12 @@ void SetupProcessObject(Environment* env,
   Local<Object> versions = Object::New(env->isolate());
   READONLY_PROPERTY(process, "versions", versions);
 
-  const char http_parser_version[] = NODE_STRINGIFY(HTTP_PARSER_VERSION_MAJOR)
-                                     /*"."
-                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_MINOR)
-                                     "."
-                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_PATCH)*/;
+  const char http_parser_version[] = CONCATSTR5(
+                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_MAJOR),
+                                     ".",
+                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_MINOR),
+                                     ".",
+                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_PATCH));
   READONLY_PROPERTY(versions,
                     "http_parser",
                     FIXED_ONE_BYTE_STRING(env->isolate(), http_parser_version));
@@ -3121,10 +3122,10 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(release,
                     "libUrl",
                     OneByteString(env->isolate(),
-                    strcmp(NODE_ARCH, "ia32") ? NODE_RELEASE_URLPFX /*"win-"
-                                                NODE_ARCH "/node.lib"*/
-                                              : /*NODE_RELEASE_URLPFX*/
-                                                "win-x86/node.lib"));
+                    strcmp(NODE_ARCH, "ia32") ? CONCATSTR4(NODE_RELEASE_URLPFX, "win-",
+                                                NODE_ARCH, "/node.lib")
+                                              : CONCATSTR2(NODE_RELEASE_URLPFX,
+                                                "win-x86/node.lib")));
 #  endif
 #endif
 
@@ -4235,8 +4236,7 @@ void Init(int* argc,
   // Initialize ICU.
   // If icu_data_dir is nullptr here, it will load the 'minimal' data.
   if (!i18n::InitializeICUDirectory(icu_data_dir)) {
-    FatalError(nullptr, /*"Could not initialize ICU "*/
-                     "(check NODE_ICU_DATA or --icu-data-dir parameters)");
+    FatalError(nullptr, "Could not initialize ICU (check NODE_ICU_DATA or --icu-data-dir parameters)");
   }
 #endif
   // The const_cast doesn't violate conceptual const-ness.  V8 doesn't modify

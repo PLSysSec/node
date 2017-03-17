@@ -153,7 +153,7 @@ static std::vector<char> encode_frame_hybi17(const char* message,
     // Fill the length into extended_payload_length in the network byte order.
     for (int i = 0; i < 8; ++i) {
       extended_payload_length[7 - i] = remaining & 0xFF;
-      //remaining >>= 8;
+      remaining = remaining >> 8;
     }
     frame.insert(frame.end(), extended_payload_length,
                  extended_payload_length + 8);
@@ -461,9 +461,7 @@ static void then_close_and_report_failure(uv_write_t* req, int status) {
 
 static void handshake_failed(InspectorSocket* inspector) {
   const char HANDSHAKE_FAILED_RESPONSE[] =
-      "HTTP/1.0 400 Bad Request\r\n"
-      /*"Content-Type: text/html; charset=UTF-8\r\n\r\n"
-      "WebSockets request was expected\r\n"*/;
+      "HTTP/1.0 400 Bad Request\r\nContent-Type: text/html; charset=UTF-8\r\n\r\nWebSockets request was expected\r\n";
   write_to_client(inspector, HANDSHAKE_FAILED_RESPONSE,
                   sizeof(HANDSHAKE_FAILED_RESPONSE) - 1,
                   then_close_and_report_failure);
@@ -489,10 +487,7 @@ static int message_complete_cb(http_parser* parser) {
                              state->path)) {
     char accept_string[ACCEPT_KEY_LENGTH];
     generate_accept_string(state->ws_key, &accept_string);
-    const char accept_ws_prefix[] = "HTTP/1.1 101 Switching Protocols\r\n"
-                                    /*"Upgrade: websocket\r\n"
-                                    "Connection: Upgrade\r\n"
-                                    "Sec-WebSocket-Accept: "*/;
+    const char accept_ws_prefix[] = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
     const char accept_ws_suffix[] = "\r\n\r\n";
     std::string reply(accept_ws_prefix, sizeof(accept_ws_prefix) - 1);
     reply.append(accept_string, sizeof(accept_string));

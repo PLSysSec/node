@@ -7,7 +7,7 @@
 #include "node_version.h"
 #include "node_internals.h"
 #include "node_revert.h"
-
+#include "safe_v8.h"
 #if defined HAVE_PERFCTR
 #include "node_counters.h"
 #endif
@@ -2177,6 +2177,7 @@ static void SetGroups(const FunctionCallbackInfo<Value>& args) {
   size_t size = groups_list->Length();
   gid_t* groups = new gid_t[size];
 
+  bool failed = false;
   for (size_t i = 0; i < size; i++) {
       safeV8::GetField(isolate->GetCurrentContext(), groups_list, i)
   .OnVal([&](Local<Value> groups_list_i)-> safeV8::SafeV8Promise_Base {
@@ -2185,6 +2186,7 @@ gid_t gid = gid_by_name(env->isolate(), groups_list_i);
     if (gid == gid_not_found) {
       delete[] groups;
       env->ThrowError("group name not found");
+      failed = true;
     return safeV8::Done;
     }
 
@@ -2197,11 +2199,14 @@ gid_t gid = gid_by_name(env->isolate(), groups_list_i);
   });
 }
 
-  int rc = setgroups(size, groups);
-  delete[] groups;
+  if (!failed)
+  {
+    int rc = setgroups(size, groups);
+    delete[] groups;
 
-  if (rc == -1) {
-    return env->ThrowErrnoException(errno, "setgroups");
+    if (rc == -1) {
+      return env->ThrowErrnoException(errno, "setgroups");
+    }
   }
 }
 
@@ -2450,7 +2455,7 @@ struct node_module* get_linked_module(const char* name) {
   return mp;
 }
 
-//typedef void (UV_DYNAMIC* extInit)(Local<Object> exports);
+typedef void (UV_DYNAMIC* extInit)(Local<Object> exports);
 
 // DLOpen is process.dlopen(module, filename).
 // Used to load 'module.node' dynamically shared objects.
@@ -2533,7 +2538,7 @@ Local<Object> exports = module_exports_string->ToObject(env->isolate());
   } else {
     uv_dlclose(&lib);
     env->ThrowError("Module has no declared entry point.");
-    return;
+    return safeV8::Done;
   }
 
   // Tell coverity that 'handle' should not be freed when we return.
@@ -2666,8 +2671,7 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
   .OnVal([&](Local<Value> cache_module)-> safeV8::SafeV8Promise_Base {
 exports = cache_module->ToObject(env->isolate());
     args.GetReturnValue().Set(exports);
-    return;
-  
+
   return safeV8::Done;
   })
   .OnErr([&isolate](Local<Value> exception){

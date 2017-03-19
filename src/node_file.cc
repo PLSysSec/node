@@ -10,7 +10,7 @@
 #include "req-wrap-inl.h"
 #include "string_bytes.h"
 #include "util.h"
-
+#include "safe_v8.h"
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -374,8 +374,23 @@ class fs_req_wrap {
     return env->ThrowUVException(err, #func, nullptr, path, dest);            \
   }                                                                           \
 
+#define SYNC_DEST_CALL_SAFE(func, path, dest, ...)                                 \
+  fs_req_wrap req_wrap;                                                       \
+  env->PrintSyncTrace();                                                      \
+  int err = uv_fs_ ## func(env->event_loop(),                                 \
+                         &req_wrap.req,                                       \
+                         __VA_ARGS__,                                         \
+                         nullptr);                                            \
+  if (err < 0) {                                                              \
+    env->ThrowUVException(err, #func, nullptr, path, dest);            \
+    return safeV8::Done;                                             \
+  }                                                                           \
+
 #define SYNC_CALL(func, path, ...)                                            \
   SYNC_DEST_CALL(func, path, nullptr, __VA_ARGS__)                            \
+
+#define SYNC_CALL_SAFE(func, path, ...)                                            \
+  SYNC_DEST_CALL_SAFE(func, path, nullptr, __VA_ARGS__)                            \
 
 #define SYNC_REQ req_wrap.req
 
@@ -551,7 +566,7 @@ static void InternalModuleReadFile(const FunctionCallbackInfo<Value>& args) {
   uv_fs_req_cleanup(&open_req);
 
   if (fd < 0) {
-    return;
+    return safeV8::Done;
   }
 
   std::vector<char> chars;
@@ -1075,9 +1090,10 @@ static void WriteBuffer(const FunctionCallbackInfo<Value>& args) {
   .OnVal([&](Local<Object> args1) -> safeV8::SafeV8Promise_Base {
   Environment* env = Environment::GetCurrent(args);
 
-  if (!args[0]->IsInt32())
+  if (!args[0]->IsInt32()){
     env->ThrowTypeError("First argument must be file descriptor");
     return safeV8::Done;
+  }
 
   if(!(Buffer::HasInstance(args[1]))) {
     Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(Buffer::HasInstance(args[1]));");
@@ -1112,10 +1128,10 @@ static void WriteBuffer(const FunctionCallbackInfo<Value>& args) {
 
   if (req->IsObject()) {
     ASYNC_CALL(write, req, UTF8, fd, &uvbuf, 1, pos)
-    return;
+    return safeV8::Done;;
   }
 
-  SYNC_CALL(write, nullptr, fd, &uvbuf, 1, pos)
+  SYNC_CALL_SAFE(write, nullptr, fd, &uvbuf, 1, pos)
   args.GetReturnValue().Set(SYNC_RESULT);
 return safeV8::Done;
   })
@@ -1155,9 +1171,10 @@ safeV8::GetField(isolate->GetCurrentContext(), chunks, i)
   .OnVal([&](Local<Value> chunks_i)-> safeV8::SafeV8Promise_Base {
 Local<Value> chunk = chunks_i;
 
-    if (!Buffer::HasInstance(chunk))
+    if (!Buffer::HasInstance(chunk)){
       env->ThrowTypeError("Array elements all need to be buffers");
-    return safeV8::Done;
+      return safeV8::Done;
+    }
 
     iovs[i] = uv_buf_init(Buffer::Data(chunk), Buffer::Length(chunk));
   
@@ -1169,10 +1186,10 @@ Local<Value> chunk = chunks_i;
 
   if (req->IsObject()) {
     ASYNC_CALL(write, req, UTF8, fd, *iovs, iovs.length(), pos)
-    return;
+      return safeV8::Done;
   }
 
-  SYNC_CALL(write, nullptr, fd, *iovs, iovs.length(), pos)
+  SYNC_CALL_SAFE(write, nullptr, fd, *iovs, iovs.length(), pos)
   args.GetReturnValue().Set(SYNC_RESULT);
 return safeV8::Done;
   })

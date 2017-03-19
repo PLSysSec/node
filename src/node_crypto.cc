@@ -23,6 +23,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include "safe_v8.h"
 
 #define THROW_AND_RETURN_IF_NOT_STRING_OR_BUFFER(val, prefix)                  \
   do {                                                                         \
@@ -35,6 +36,14 @@
   do {                                                        \
     if (!Buffer::HasInstance(val)) {                          \
       return env->ThrowTypeError(prefix " must be a buffer"); \
+    }                                                         \
+  } while (0)
+
+#define THROW_AND_RETURN_IF_NOT_BUFFER_SAFE(val, prefix)           \
+  do {                                                        \
+    if (!Buffer::HasInstance(val)) {                          \
+       env->ThrowTypeError(prefix " must be a buffer"); \
+       return safeV8::Done;               \
     }                                                         \
   } while (0)
 
@@ -3377,12 +3386,13 @@ void CipherBase::SetAuthTag(const FunctionCallbackInfo<Value>& args) {
 
   Local<Object> buf = args0;
 
-  if (!buf->IsObject() || !Buffer::HasInstance(buf))
+  if (!buf->IsObject() || !Buffer::HasInstance(buf)){
     env->ThrowTypeError("Auth tag must be a Buffer");
     return safeV8::Done;
+  }
 
   CipherBase* cipher;
-  ASSIGN_OR_RETURN_UNWRAP(&cipher, args.Holder());
+  ASSIGN_OR_RETURN_UNWRAP_SAFE(&cipher, args.Holder());
 
   if (!cipher->SetAuthTag(Buffer::Data(buf), Buffer::Length(buf)))
     env->ThrowError("Attempting to set auth tag in unsupported state");
@@ -5018,9 +5028,9 @@ void ECDH::SetPrivateKey(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   ECDH* ecdh;
-  ASSIGN_OR_RETURN_UNWRAP(&ecdh, args.Holder());
+  ASSIGN_OR_RETURN_UNWRAP_SAFE(&ecdh, args.Holder());
 
-  THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "Private key");
+  THROW_AND_RETURN_IF_NOT_BUFFER_SAFE(args[0], "Private key");
 
   BIGNUM* priv = BN_bin2bn(
       reinterpret_cast<unsigned char*>(Buffer::Data(args0)),
@@ -5092,9 +5102,9 @@ void ECDH::SetPublicKey(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   ECDH* ecdh;
-  ASSIGN_OR_RETURN_UNWRAP(&ecdh, args.Holder());
+  ASSIGN_OR_RETURN_UNWRAP_SAFE(&ecdh, args.Holder());
 
-  THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "Public key");
+  THROW_AND_RETURN_IF_NOT_BUFFER_SAFE(args[0], "Public key");
 
   EC_POINT* pub = ecdh->BufferToPoint(Buffer::Data(args0),
                                       Buffer::Length(args0));
@@ -5104,9 +5114,10 @@ void ECDH::SetPublicKey(const FunctionCallbackInfo<Value>& args) {
 
   int r = EC_KEY_set_public_key(ecdh->key_, pub);
   EC_POINT_free(pub);
-  if (!r)
+  if (!r) {
     env->ThrowError("Failed to set EC_POINT as the public key");
     return safeV8::Done;
+  }
 return safeV8::Done;
   })
   .OnErr([&isolate](Local<Value> exception){

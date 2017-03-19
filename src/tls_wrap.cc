@@ -12,6 +12,7 @@
 #include "stream_base-inl.h"
 #include "util.h"
 #include "util-inl.h"
+#include "safe_v8.h"
 
 namespace node {
 

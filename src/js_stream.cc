@@ -7,7 +7,7 @@
 #include "stream_base.h"
 #include "stream_base-inl.h"
 #include "v8.h"
-
+#include "safe_v8.h"
 namespace node {
 
 using v8::Array;
@@ -175,8 +175,8 @@ void JSStream::DoAfterWrite(const FunctionCallbackInfo<Value>& args) {
   safeV8::With(isolate, args[0])
   .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
   WriteWrap* w;
-  ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
-  ASSIGN_OR_RETURN_UNWRAP(&w, args0);
+  ASSIGN_OR_RETURN_UNWRAP_SAFE(&wrap, args.Holder());
+  ASSIGN_OR_RETURN_UNWRAP_SAFE(&w, args0);
 
   wrap->OnAfterWrite(w);
 return safeV8::Done;
@@ -194,7 +194,7 @@ void JSStream::Finish(const FunctionCallbackInfo<Value>& args) {
   
   safeV8::With(isolate, args[0])
   .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
-  ASSIGN_OR_RETURN_UNWRAP(&w, args0);
+    ASSIGN_OR_RETURN_UNWRAP_SAFE(&w, args0);
 
   w->Done(args[1]->Int32Value());
 return safeV8::Done;

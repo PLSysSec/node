@@ -7,6 +7,7 @@
 #include "req-wrap-inl.h"
 #include "util.h"
 #include "util-inl.h"
+#include "safe_v8.h"
 
 #include <stdlib.h>
 
@@ -276,8 +277,13 @@ void UDPWrap::DoSend(const FunctionCallbackInfo<Value>& args, int family) {
   
   
 
-  safeV8::With(isolate, args[0], args[1], args[2], args[3], args[4], args[5])
-  .OnVal([&](Local<Object> args0, Local<Array> args1, Local<Uint32> args2, Local<Uint32> args3, Local<String> args4, Local<Boolean> args5) -> safeV8::SafeV8Promise_Base {
+  safeV8::With(isolate, args[0], args[1], args[2])
+  .OnVal([&](Local<Object> args0, Local<Array> args1, Local<Uint32> args2) -> safeV8::SafeV8Promise_Base {
+
+
+    return safeV8::With(isolate, args[3], args[4], args[5])
+      .OnVal([&](Local<Uint32> args3, Local<String> args4, Local<Boolean> args5) -> safeV8::SafeV8Promise_Base {
+
   Local<Object> req_wrap_obj = args0;
   Local<Array> chunks = args1;
   // it is faster to fetch the length of the
@@ -343,6 +349,7 @@ Local<Value> chunk = chunks_i;
 
   args.GetReturnValue().Set(err);
 return safeV8::Done;
+    });
   })
   .OnErr([&isolate](Local<Value> exception){
     isolate->ThrowException(exception);

@@ -29,7 +29,7 @@
 #include "util.h"
 #include "util-inl.h"
 #include "v8.h"
-
+#include "safe_v8.h"
 #include <unicode/putil.h>
 #include <unicode/udata.h>
 #include <unicode/uidna.h>

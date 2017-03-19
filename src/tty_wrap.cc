@@ -10,6 +10,7 @@
 #include "stream_wrap.h"
 #include "util.h"
 #include "util-inl.h"
+#include "safe_v8.h"
 
 namespace node {
 

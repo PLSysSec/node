@@ -23,6 +23,7 @@
 
 #include "env.h"
 #include "env-inl.h"
+#include "safe_v8.h"
 
 namespace node {
 

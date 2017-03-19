@@ -14,6 +14,7 @@
 #include <vector>
 #include <stdio.h>
 #include <cmath>
+#include "safe_v8.h"
 
 #if defined(NODE_HAVE_I18N_SUPPORT)
 #include <unicode/utf8.h>
@@ -1300,33 +1301,27 @@ namespace url {
   }
 
   static void Parse(const FunctionCallbackInfo<Value>& args) {
-    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
-  Environment* env = Environment::GetCurrent(args);
-    if(args.Length() < 5) {
-    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),5);");
-  }
-    
-    
-    
-    
-    safeV8::With(isolate, args[0], args[2], args[2], args[2], args[3], args[3], args[3], args[4])
-  .OnVal([&](Local<String> args0, Local<Undefined> args2, Local<Null> args2, Local<Object> args2, Local<Undefined> args3, Local<Null> args3, Local<Object> args3, Local<Function> args4) -> safeV8::SafeV8Promise_Base {
-  Utf8Value input(env->isolate(), args[0]);
+    Environment* env = Environment::GetCurrent(args);
+    CHECK_GE(args.Length(), 5);
+    CHECK(args[0]->IsString());
+    CHECK(args[2]->IsUndefined() ||
+      args[2]->IsNull() ||
+      args[2]->IsObject());
+    CHECK(args[3]->IsUndefined() ||
+      args[3]->IsNull() ||
+      args[3]->IsObject());
+    CHECK(args[4]->IsFunction());
+    Utf8Value input(env->isolate(), args[0]);
     enum url_parse_state override1 = kUnknownState;
     if (args[1]->IsNumber())
       override1 = (enum url_parse_state)(args[1]->Uint32Value());
 
     Parse(env, args.This(),
-          *input, input.length(),
-          override1,
-          args2,
-          args3,
-          args4);
-  return safeV8::Done;
-  })
-  .OnErr([&isolate](Local<Value> exception){
-    isolate->ThrowException(exception);
-  });
+      *input, input.length(),
+      override1,
+      args[2].As<Object>(),
+      args[3].As<Object>(),
+      args[4].As<Function>());
 }
 
   static void EncodeAuthSet(const FunctionCallbackInfo<Value>& args) {
@@ -1372,7 +1367,7 @@ namespace url {
     ParseHost(&host, *value, value.length());
     if (host.type == HOST_TYPE_FAILED) {
       args.GetReturnValue().Set(FIXED_ONE_BYTE_STRING(env->isolate(), ""));
-      return;
+      return safeV8::Done;
     }
     std::string out;
     WriteHost(&host, &out);
@@ -1402,7 +1397,7 @@ namespace url {
     ParseHost(&host, *value, value.length(), true);
     if (host.type == HOST_TYPE_FAILED) {
       args.GetReturnValue().Set(FIXED_ONE_BYTE_STRING(env->isolate(), ""));
-      return;
+      return safeV8::Done;
     }
     std::string out;
     WriteHost(&host, &out);

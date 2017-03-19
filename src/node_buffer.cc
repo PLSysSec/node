@@ -9,7 +9,7 @@
 #include "util-inl.h"
 #include "v8-profiler.h"
 #include "v8.h"
-
+#include "safe_v8.h"
 #include <string.h>
 #include <limits.h>
 
@@ -22,10 +22,24 @@
     if (!(r)) return env->ThrowRangeError("out of range index");            \
   } while (0)
 
+#define THROW_AND_RETURN_IF_OOB_SAFE(r)                                          \
+  do {                                                                      \
+    if (!(r)) { env->ThrowRangeError("out of range index"); return safeV8::Done;}           \
+  } while (0)
+
 #define THROW_AND_RETURN_UNLESS_BUFFER(env, obj)                            \
   do {                                                                      \
     if (!HasInstance(obj))                                                  \
       return env->ThrowTypeError("argument should be a Buffer");            \
+  } while (0)
+
+
+#define THROW_AND_RETURN_UNLESS_BUFFER_SAFE(env, obj)                            \
+  do {                                                                      \
+    if (!HasInstance(obj)) {                                                 \
+      env->ThrowTypeError("argument should be a Buffer");            \
+      return safeV8::Done;                                             \
+    }                                                               \
   } while (0)
 
 #define SPREAD_ARG(val, name)                                                 \
@@ -547,13 +561,14 @@ void Base64Slice(const FunctionCallbackInfo<Value>& args) {
 // bytesCopied = buffer.copy(target[, targetStart][, sourceStart][, sourceEnd]);
 void Copy(const FunctionCallbackInfo<Value> &args) {
   v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
-  
-  safeV8::With(isolate, args[0])
-  .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
   Environment* env = Environment::GetCurrent(args);
-
   THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
+
+
   Local<Object> target_obj = args0;
   SPREAD_ARG(args.This(), ts_obj);
   SPREAD_ARG(target_obj, target);
@@ -562,9 +577,9 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
   size_t source_start;
   size_t source_end;
 
-  THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[1], 0, &target_start));
-  THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[2], 0, &source_start));
-  THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[3], ts_obj_length, &source_end));
+  THROW_AND_RETURN_IF_OOB_SAFE(ParseArrayIndex(args[1], 0, &target_start));
+  THROW_AND_RETURN_IF_OOB_SAFE(ParseArrayIndex(args[2], 0, &source_start));
+  THROW_AND_RETURN_IF_OOB_SAFE(ParseArrayIndex(args[3], ts_obj_length, &source_end));
 
   // Copy 0 bytes; we're done
   if (target_start >= target_length || source_start >= source_end)
@@ -821,7 +836,7 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   bool should_assert = args.Length() < 4;
 
   if (should_assert) {
-    THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+    THROW_AND_RETURN_UNLESS_BUFFER_SAFE(env, args[0]);
   }
 
   Local<Uint8Array> ts_obj = args0;
@@ -839,8 +854,8 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   size_t memcpy_num = sizeof(T);
 
   if (should_assert) {
-    THROW_AND_RETURN_IF_OOB(offset + memcpy_num >= memcpy_num);
-    THROW_AND_RETURN_IF_OOB(offset + memcpy_num <= ts_obj_length);
+    THROW_AND_RETURN_IF_OOB_SAFE(offset + memcpy_num >= memcpy_num);
+    THROW_AND_RETURN_IF_OOB_SAFE(offset + memcpy_num <= ts_obj_length);
   }
 
   if (offset + memcpy_num > ts_obj_length)
@@ -1014,18 +1029,18 @@ int64_t IndexOfOffset(size_t length, int64_t offset_i64, bool is_forward) {
 
 void IndexOfString(const FunctionCallbackInfo<Value>& args) {
   v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
-  
+  enum encoding enc = ParseEncoding(args.GetIsolate(),
+    args[3],
+    UTF8);
+
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
+  SPREAD_ARG(args[0], ts_obj);
   
   
 
   safeV8::With(isolate, args[1], args[2], args[4])
   .OnVal([&](Local<String> args1, Local<Number> args2, Local<Boolean> args4) -> safeV8::SafeV8Promise_Base {
-  enum encoding enc = ParseEncoding(args.GetIsolate(),
-                                    args[3],
-                                    UTF8);
 
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
-  SPREAD_ARG(args[0], ts_obj);
 
   Local<String> needle = args1;
   int64_t offset_i64 = args[2]->IntegerValue();
@@ -1140,19 +1155,19 @@ return safeV8::Done;
 void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
   v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   
-  
-  
-
-  safeV8::With(isolate, args[1], args[2], args[4])
-  .OnVal([&](Local<Object> args1, Local<Number> args2, Local<Boolean> args4) -> safeV8::SafeV8Promise_Base {
   enum encoding enc = ParseEncoding(args.GetIsolate(),
-                                    args[3],
-                                    UTF8);
+    args[3],
+    UTF8);
 
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[1]);
   SPREAD_ARG(args[0], ts_obj);
   SPREAD_ARG(args[1], buf);
+  
+
+  safeV8::With(isolate, args[1], args[2], args[4])
+  .OnVal([&](Local<Object> args1, Local<Number> args2, Local<Boolean> args4) -> safeV8::SafeV8Promise_Base {
+
   int64_t offset_i64 = args[2]->IntegerValue();
   bool is_forward = args[4]->IsTrue();
 
@@ -1219,13 +1234,13 @@ return safeV8::Done;
 void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
   v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   
-  
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
+  SPREAD_ARG(args[0], ts_obj);
   
 
   safeV8::With(isolate, args[1], args[2], args[3])
   .OnVal([&](Local<Number> args1, Local<Number> args2, Local<Boolean> args3) -> safeV8::SafeV8Promise_Base {
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
-  SPREAD_ARG(args[0], ts_obj);
+
 
   uint32_t needle = args[1]->Uint32Value();
   int64_t offset_i64 = args[2]->IntegerValue();

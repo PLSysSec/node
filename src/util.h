@@ -141,6 +141,14 @@ template <typename T> using remove_reference = std::remove_reference<T>;
       return __VA_ARGS__;                                                     \
   } while (0)
 
+#define ASSIGN_OR_RETURN_UNWRAP_SAFE(ptr, obj, ...)                                \
+  do {                                                                        \
+    *ptr =                                                                    \
+        Unwrap<typename node::remove_reference<decltype(**ptr)>::type>(obj);  \
+    if (*ptr == nullptr)                                                      \
+      return safeV8::Done;                                                     \
+  } while (0)
+
 // TAILQ-style intrusive list node.
 template <typename T>
 class ListNode;

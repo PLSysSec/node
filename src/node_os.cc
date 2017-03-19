@@ -3,7 +3,7 @@
 #include "env.h"
 #include "env-inl.h"
 #include "string_bytes.h"
-
+#include "safe_v8.h"
 #include <errno.h>
 #include <string.h>
 

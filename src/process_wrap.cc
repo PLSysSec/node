@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include "safe_v8.h"
 
 namespace node {
 

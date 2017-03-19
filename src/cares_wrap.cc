@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include "safe_v8.h"
 
 #if defined(__ANDROID__) || \
     defined(__MINGW32__) || \
@@ -1279,6 +1280,7 @@ static void SetServers(const FunctionCallbackInfo<Value>& args) {
   int err;
 
   for (uint32_t i = 0; i < len; i++) {
+    bool shouldBreak = false;
           bool safeV8_Failed3 = false;
     Local<Value> safeV8_exceptionThrown3;
 safeV8::GetField(isolate->GetCurrentContext(), arr, i)
@@ -1317,15 +1319,16 @@ CHECK(elm_1->IsString());
     }
 
     if (err)
-      break;
+      shouldBreak= true;
+    else
+    {
+      cur->next = nullptr;
 
-    cur->next = nullptr;
+      if (last != nullptr)
+        last->next = cur;
 
-    if (last != nullptr)
-      last->next = cur;
-
-    last = cur;
-  
+      last = cur;
+    }
   return safeV8::Done;
   })
     .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
@@ -1340,6 +1343,8 @@ CHECK(elm_1->IsString());
   })
     .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
     if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+    if (shouldBreak) break;
 }
 
   if (err == 0)

@@ -44,4 +44,8 @@ Y = transpose(arrFinal(:, 3));
 err = transpose(arrFinal(:, 5));
 errorbar(X, Y, err, '-s','MarkerSize',3, 'MarkerEdgeColor','red','MarkerFaceColor','red', 'LineWidth', 1.5);
 
-legend('old rates','new rates');
+h_legend=legend('old rates','new rates');
+set(h_legend,'FontSize',32);
+
+set(gca,'fontsize',32);
+axis tight

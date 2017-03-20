@@ -418,8 +418,8 @@ namespace safeV8 {
 
 #define GetStyleAPI(apiname, apitype)\
 template<typename ObjectType, typename KeyType>\
-bool SafeV8##apiname##(Local<Context> context, ObjectType object, KeyType key, Local<##apitype##>& outVal, Local<Value>& err, bool& hasError) {\
-  if (object->##apiname##(context, key).ToLocal(&outVal))\
+bool SafeV8##apiname(Local<Context> context, ObjectType object, KeyType key, Local<apitype>& outVal, Local<Value>& err, bool& hasError) {\
+  if (object->apiname(context, key).ToLocal(&outVal))\
   {\
     hasError = false;\
     return true;\
@@ -448,7 +448,7 @@ public:\
   V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8_##apiname##Output>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())\
   {\
     Local<Value> outVal;\
-    if (SafeV8##apiname##(context, object, key, outVal, err, exceptionThrown))\
+    if (SafeV8##apiname(context, object, key, outVal, err, exceptionThrown))\
     {\
       func(outVal);\
       return *this;\
@@ -465,7 +465,7 @@ public:\
   V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8_##apiname##Output>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())\
   {\
     Local<Value> outVal;\
-    if (SafeV8##apiname##(context, object, key, outVal, err, exceptionThrown))\
+    if (SafeV8##apiname(context, object, key, outVal, err, exceptionThrown))\
     {\
       SafeV8Promise_Base nestedCall = func(outVal);\
       exceptionThrown = nestedCall.GetIsExceptionThrown();\
@@ -503,7 +503,7 @@ public:\
 };\
 \
 template<typename ObjectType, typename KeyType>\
-V8_WARN_UNUSED_RESULT inline SafeV8_##apiname##Output<ObjectType, KeyType> apiname##(Local<Context> context, ObjectType object, KeyType key)\
+V8_WARN_UNUSED_RESULT inline SafeV8_##apiname##Output<ObjectType, KeyType> apiname(Local<Context> context, ObjectType object, KeyType key)\
 {\
   return SafeV8_##apiname##Output<ObjectType, KeyType>(context, object, key);\
 }
@@ -638,10 +638,10 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
 
 
 #define ToStringStyleAPI(apiname, apitype, v8obj)\
-  inline bool SafeV8##apiname##(Isolate* isolate, Local<##v8obj##> v, Local<##apitype##>& outStringVal, Local<Value>& err, bool& hasError) {\
-    MaybeLocal<##apitype##> ret = v->##apiname##(isolate->GetCurrentContext());\
+  inline bool SafeV8##apiname(Isolate* isolate, Local<v8obj> v, Local<apitype>& outStringVal, Local<Value>& err, bool& hasError) {\
+    MaybeLocal<apitype> ret = v->apiname(isolate->GetCurrentContext());\
     if (!ret.IsEmpty()) {\
-      outStringVal = ret.FromMaybe(Local<##apitype##>());\
+      outStringVal = ret.FromMaybe(Local<apitype>());\
       hasError = false;\
       return true;\
     }\
@@ -654,19 +654,19 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
     }\
   }\
 \
-  class SafeV8Promise_GetOutput_##apiname## : public SafeV8Promise_Base\
+  class SafeV8Promise_GetOutput_##apiname : public SafeV8Promise_Base\
   {\
   private:\
     Isolate* isolate;\
-    Local<##v8obj##> v1;\
+    Local<v8obj> v1;\
   public:\
-    SafeV8Promise_GetOutput_##apiname##(Isolate* _isolate, Local<##v8obj##> _v1) : isolate(_isolate), v1(_v1) {}\
+    SafeV8Promise_GetOutput_##apiname(Isolate* _isolate, Local<v8obj> _v1) : isolate(_isolate), v1(_v1) {}\
 \
     template<typename F>\
-    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput_##apiname##>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())\
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput_##apiname>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())\
     {\
       first_argument<F> obj1;\
-      if (SafeV8##apiname##(isolate, v1, obj1, err, exceptionThrown))\
+      if (SafeV8##apiname(isolate, v1, obj1, err, exceptionThrown))\
       {\
         func(obj1);\
         return *this;\
@@ -680,10 +680,10 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
     }\
 \
     template<typename F>\
-    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput_##apiname##>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())\
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput_##apiname>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())\
     {\
       first_argument<F> obj1;\
-      if (SafeV8##apiname##(isolate, v1, obj1, err, exceptionThrown))\
+      if (SafeV8##apiname(isolate, v1, obj1, err, exceptionThrown))\
       {\
         SafeV8Promise_Base nestedCall = func(obj1);\
         exceptionThrown = nestedCall.GetIsExceptionThrown();\
@@ -708,7 +708,7 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
     }\
 \
     template<typename F>\
-    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput_##apiname##>::type OnErr(F func)\
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput_##apiname>::type OnErr(F func)\
     {\
       if (exceptionThrown)\
       {\
@@ -721,9 +721,9 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
   };\
 \
 \
-  V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput_##apiname apiname##(Isolate* isolate, Local<##v8obj##> first) \
+  V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput_##apiname apiname(Isolate* isolate, Local<v8obj> first) \
   {\
-    return SafeV8Promise_GetOutput_##apiname##(isolate, first); \
+    return SafeV8Promise_GetOutput_##apiname(isolate, first); \
   }\
 
 

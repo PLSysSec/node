@@ -37,15 +37,17 @@ tests = sortrows(tests, 'Separation', 'descend');
 X = transpose(arrFinal(:, 1));
 Y = transpose(arrFinal(:, 2));
 err = transpose(arrFinal(:, 4));
-errorbar(X, Y, err, '-s','MarkerSize',3, 'MarkerEdgeColor','blue','MarkerFaceColor','blue', 'LineWidth', 1.5);
+errorbar(X, Y, err, '-s','MarkerSize',3, 'MarkerEdgeColor','blue','MarkerFaceColor','blue', 'LineWidth', 1.5, 'linestyle','none','marker','o');
 hold on
 
 Y = transpose(arrFinal(:, 3));
 err = transpose(arrFinal(:, 5));
-errorbar(X, Y, err, '-s','MarkerSize',3, 'MarkerEdgeColor','red','MarkerFaceColor','red', 'LineWidth', 1.5);
+errorbar(X, Y, err, '-s','MarkerSize',3, 'MarkerEdgeColor','red','MarkerFaceColor','red', 'LineWidth', 1.5, 'linestyle','none','marker','o');
 
-h_legend=legend('old rates','new rates');
+h_legend=legend('Node.js','SaferNode.js');
 set(h_legend,'FontSize',32);
 
 set(gca,'fontsize',32);
 axis tight
+xlabel('Test ID')
+ylabel('Normalized Rates (ops/sec)')

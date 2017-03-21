@@ -29,7 +29,7 @@
   } while (0)
 
 #define SPREAD_ARG(val, name)                                                 \
-  CHECK((val)->IsUint8Array());                                               \
+  CHECK((val)->IsUint8Array());                                           \
   Local<Uint8Array> name = (val).As<Uint8Array>();                            \
   ArrayBuffer::Contents name##_c = name->Buffer()->GetContents();             \
   const size_t name##_offset = name->ByteOffset();                            \
@@ -38,6 +38,20 @@
       static_cast<char*>(name##_c.Data()) + name##_offset;                    \
   if (name##_length > 0)                                                      \
     CHECK_NE(name##_data, nullptr);
+
+#define SPREAD_ARG_NEW(val, name, env)                                        \
+  /*CHECK((val)->IsUint8Array());*/                                           \
+  if (!((val)->IsUint8Array())) { env->ThrowTypeError("err1"); return; }      \
+  Local<Uint8Array> name = (val).As<Uint8Array>();                            \
+  ArrayBuffer::Contents name##_c = name->Buffer()->GetContents();             \
+  const size_t name##_offset = name->ByteOffset();                            \
+  const size_t name##_length = name->ByteLength();                            \
+  char* const name##_data =                                                   \
+      static_cast<char*>(name##_c.Data()) + name##_offset;                    \
+  if (name##_length > 0) {                                                    \
+     if(name##_data == nullptr){ env->ThrowTypeError("err2"); return; }       \
+  }                                                                           \
+  //CHECK_NE(name##_data, nullptr);
 
 #define SLICE_START_END(start_arg, end_arg, end_max)                        \
   size_t start;                                                             \
@@ -1073,70 +1087,6 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
       result == haystack_length ? -1 : static_cast<int>(result));
 }
 
-void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
-  ASSERT(args[1]->IsObject());
-  ASSERT(args[2]->IsNumber());
-  ASSERT(args[4]->IsBoolean());
-
-  enum encoding enc = ParseEncoding(args.GetIsolate(),
-                                    args[3],
-                                    UTF8);
-
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[1]);
-  SPREAD_ARG(args[0], ts_obj);
-  SPREAD_ARG(args[1], buf);
-  int64_t offset_i64 = args[2]->IntegerValue();
-  bool is_forward = args[4]->IsTrue();
-
-  const char* haystack = ts_obj_data;
-  const size_t haystack_length = ts_obj_length;
-  const char* needle = buf_data;
-  const size_t needle_length = buf_length;
-
-  if (needle_length == 0 || haystack_length == 0) {
-    return args.GetReturnValue().Set(-1);
-  }
-
-  int64_t opt_offset = IndexOfOffset(haystack_length, offset_i64, is_forward);
-  if (opt_offset <= -1) {
-    return args.GetReturnValue().Set(-1);
-  }
-  size_t offset = static_cast<size_t>(opt_offset);
-  CHECK_LT(offset, haystack_length);
-  if ((is_forward && needle_length + offset > haystack_length) ||
-      needle_length > haystack_length) {
-    return args.GetReturnValue().Set(-1);
-  }
-
-  size_t result = haystack_length;
-
-  if (enc == UCS2) {
-    if (haystack_length < 2 || needle_length < 2) {
-      return args.GetReturnValue().Set(-1);
-    }
-    result = SearchString(
-        reinterpret_cast<const uint16_t*>(haystack),
-        haystack_length / 2,
-        reinterpret_cast<const uint16_t*>(needle),
-        needle_length / 2,
-        offset / 2,
-        is_forward);
-    result *= 2;
-  } else {
-    result = SearchString(
-        reinterpret_cast<const uint8_t*>(haystack),
-        haystack_length,
-        reinterpret_cast<const uint8_t*>(needle),
-        needle_length,
-        offset,
-        is_forward);
-  }
-
-  args.GetReturnValue().Set(
-      result == haystack_length ? -1 : static_cast<int>(result));
-}
-
 void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
   ASSERT(args[1]->IsNumber());
   ASSERT(args[2]->IsNumber());
@@ -1195,6 +1145,134 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
 }
 
 
+void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
+  ASSERT(args[1]->IsObject());
+  ASSERT(args[2]->IsNumber());
+  ASSERT(args[4]->IsBoolean());
+
+  enum encoding enc = ParseEncoding(args.GetIsolate(),
+                                    args[3],
+                                    UTF8);
+
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
+  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[1]);
+  SPREAD_ARG(args[0], ts_obj);
+  SPREAD_ARG(args[1], buf);
+
+  int64_t offset_i64 = args[2]->IntegerValue();
+  bool is_forward = args[4]->IsTrue();
+
+  const char* haystack = ts_obj_data;
+  const size_t haystack_length = ts_obj_length;
+  const char* needle = buf_data;
+  const size_t needle_length = buf_length;
+
+  CHECK(needle_length!=0);
+  CHECK(haystack_length!=0);
+  if (needle_length == 0 || haystack_length == 0) {
+    return args.GetReturnValue().Set(-1);
+  }
+
+  int64_t opt_offset = IndexOfOffset(haystack_length, offset_i64, is_forward);
+
+  if (opt_offset <= -1) {
+    return args.GetReturnValue().Set(-1);
+  }
+
+  size_t offset = static_cast<size_t>(opt_offset);
+  CHECK_LT(offset, haystack_length);
+  CHECK_LT(offset, haystack_length);
+
+  if ((is_forward && needle_length + offset > haystack_length) ||
+      needle_length > haystack_length) {
+    return args.GetReturnValue().Set(-1);
+  }
+
+  size_t result = haystack_length;
+
+  if (enc == UCS2) {
+    if (haystack_length < 2 || needle_length < 2) {
+      return args.GetReturnValue().Set(-1);
+    }
+    result = SearchString(
+        reinterpret_cast<const uint16_t*>(haystack),
+        haystack_length / 2,
+        reinterpret_cast<const uint16_t*>(needle),
+        needle_length / 2,
+        offset / 2,
+        is_forward);
+    result *= 2;
+  } else {
+    result = SearchString(
+        reinterpret_cast<const uint8_t*>(haystack),
+        haystack_length,
+        reinterpret_cast<const uint8_t*>(needle),
+        needle_length,
+        offset,
+        is_forward);
+  }
+
+  args.GetReturnValue().Set(
+      result == haystack_length ? -1 : static_cast<int>(result));
+}
+/*
+void AlignmentHelper(const FunctionCallbackInfo<Value>& args)
+{
+  auto val1 = args[2]->IntegerValue();
+  if (val1 == 45) {
+    return args.GetReturnValue().Set(-1);
+  }
+}
+
+
+void AlignmentHelper2(const FunctionCallbackInfo<Value>& args)
+{
+  auto val1 = args[2]->IntegerValue();
+  auto val2 = args[3]->IntegerValue();
+
+  if (val2 - val1 == 45) {
+    return args.GetReturnValue().Set(-1);
+  }
+}
+
+void AlignmentTest(const FunctionCallbackInfo<Value>& args)
+{
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+
+  if(!args[0]->IsString())
+  {
+    return args.GetReturnValue().Set(-1);
+  }
+
+  if(!args[1]->IsString())
+  {
+    return args.GetReturnValue().Set(-1);
+  }
+
+  Local<String> one = args[0].As<String>();
+  Local<String> two = args[1].As<String>();
+
+  auto val1 = args[2]->IntegerValue();
+  auto val2 = args[3]->IntegerValue();
+  
+  if (val1 == val2) {
+    return args.GetReturnValue().Set(-1);
+  }
+
+  CHECK_LT(val2, 1024);
+
+  if (val1 == 45) {
+    return AlignmentHelper(args);
+  }
+
+  if (val1 == 46) {
+    return AlignmentHelper2(args);
+  }
+
+  args.GetReturnValue().Set(1337);
+}
+*/
 // pass Buffer object to load prototype methods
 void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -1261,6 +1339,8 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "swap16", Swap16);
   env->SetMethod(target, "swap32", Swap32);
   env->SetMethod(target, "swap64", Swap64);
+
+  //env->SetMethod(target, "AlignmentTest", AlignmentTest);
 
   target->Set(env->context(),
               FIXED_ONE_BYTE_STRING(env->isolate(), "kMaxLength"),

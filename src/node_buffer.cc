@@ -2164,7 +2164,7 @@ void TestNoOpPromise_Get(const FunctionCallbackInfo<Value>& args)
 
   Local<Object> a1 = args[0].As<Object>();
 
-  return safeV8::Get(isolate->GetCurrentContext(), a1, 0)
+  return safeV8::Get(isolate, a1, 0)
   .OnVal([&](Local<Value> ret) {
     args.GetReturnValue().Set(ret);
   })
@@ -2247,7 +2247,7 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
         auto name = FIXED_ONE_BYTE_STRING(env->isolate(), "zeroFill");
         auto value = Uint32Array::New(array_buffer, 0, 1);
 
-        return safeV8::SetField(context, binding_object, name, value);
+        return safeV8::SetField(isolate, binding_object, name, value);
       });
     }
 

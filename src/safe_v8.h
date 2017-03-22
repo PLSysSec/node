@@ -418,8 +418,8 @@ namespace safeV8 {
 
 #define GetStyleAPI(apiname, apitype)\
 template<typename ObjectType, typename KeyType>\
-bool SafeV8##apiname(Local<Context> context, ObjectType object, KeyType key, Local<apitype>& outVal, Local<Value>& err, bool& hasError) {\
-  if (object->apiname(context, key).ToLocal(&outVal))\
+bool SafeV8##apiname(Isolate* isolate, ObjectType object, KeyType key, Local<apitype>& outVal, Local<Value>& err, bool& hasError) {\
+  if (object->apiname(isolate->GetCurrentContext(), key).ToLocal(&outVal))\
   {\
     hasError = false;\
     return true;\
@@ -427,7 +427,7 @@ bool SafeV8##apiname(Local<Context> context, ObjectType object, KeyType key, Loc
   else\
   {\
     MaybeLocal<String> mErrMsg =\
-      v8::String::NewFromUtf8(context->GetIsolate(), "Get failed", v8::String::NewStringType::kNormalString);\
+      v8::String::NewFromUtf8(isolate, "##apiname failed", v8::String::NewStringType::kNormalString);\
     err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());\
     hasError = true;\
     return false;\
@@ -438,17 +438,17 @@ template<typename ObjectType, typename KeyType>\
 class SafeV8_##apiname##Output : public SafeV8Promise_Base\
 {\
 private:\
-  Local<Context> context;\
+  Isolate* isolate;\
   ObjectType object;\
   KeyType key;\
 public:\
-  SafeV8_##apiname##Output(Local<Context> _context, ObjectType _object, KeyType _key) : context(_context), object(_object), key(_key) {}\
+  SafeV8_##apiname##Output(Isolate* _isolate, ObjectType _object, KeyType _key) : isolate(_isolate), object(_object), key(_key) {}\
 \
   template<typename F>\
   V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8_##apiname##Output>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())\
   {\
     Local<Value> outVal;\
-    if (SafeV8##apiname(context, object, key, outVal, err, exceptionThrown))\
+    if (SafeV8##apiname(isolate, object, key, outVal, err, exceptionThrown))\
     {\
       func(outVal);\
       return *this;\
@@ -465,7 +465,7 @@ public:\
   V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8_##apiname##Output>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())\
   {\
     Local<Value> outVal;\
-    if (SafeV8##apiname(context, object, key, outVal, err, exceptionThrown))\
+    if (SafeV8##apiname(isolate, object, key, outVal, err, exceptionThrown))\
     {\
       SafeV8Promise_Base nestedCall = func(outVal);\
       exceptionThrown = nestedCall.GetIsExceptionThrown();\
@@ -503,9 +503,9 @@ public:\
 };\
 \
 template<typename ObjectType, typename KeyType>\
-V8_WARN_UNUSED_RESULT inline SafeV8_##apiname##Output<ObjectType, KeyType> apiname(Local<Context> context, ObjectType object, KeyType key)\
+V8_WARN_UNUSED_RESULT inline SafeV8_##apiname##Output<ObjectType, KeyType> apiname(Isolate* isolate, ObjectType object, KeyType key)\
 {\
-  return SafeV8_##apiname##Output<ObjectType, KeyType>(context, object, key);\
+  return SafeV8_##apiname##Output<ObjectType, KeyType>(isolate, object, key);\
 }
 
 
@@ -521,8 +521,8 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
   //////// Set API ////////////
 
   template<typename ObjectType, typename KeyType>
-  bool SafeV8Set(Local<Context> context, ObjectType object, KeyType key, Local<Value> val, Local<Value>& err, bool& hasError) {
-    if (object->Set(context, key, val).FromMaybe(false))
+  bool SafeV8Set(Isolate* isolate, ObjectType object, KeyType key, Local<Value> val, Local<Value>& err, bool& hasError) {
+    if (object->Set(isolate->GetCurrentContext(), key, val).FromMaybe(false))
     {
       hasError = false;
       return true;
@@ -530,7 +530,7 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
     else
     {
       MaybeLocal<String> mErrMsg =
-        v8::String::NewFromUtf8(context->GetIsolate(), "Set failed", v8::String::NewStringType::kNormalString);
+        v8::String::NewFromUtf8(isolate, "Set failed", v8::String::NewStringType::kNormalString);
       err = v8::Exception::TypeError(mErrMsg.ToLocalChecked());
       hasError = true;
       return false;
@@ -542,9 +542,9 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
   {
   public:
 
-    SafeV8_SetterOutput(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
+    SafeV8_SetterOutput(Isolate* isolate, ObjectType object, KeyType key, Local<Value> val)
     {
-      SafeV8Set(context, object, key, val, err, exceptionThrown);
+      SafeV8Set(isolate, object, key, val, err, exceptionThrown);
     }
 
     SafeV8_SetterOutput(Local<Value> exception)
@@ -614,18 +614,18 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
   };
 
   template<typename ObjectType, typename KeyType>
-  V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, Local<Value> val)
+  V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> SetField(Isolate* isolate, ObjectType object, KeyType key, Local<Value> val)
   {
-    return SafeV8_SetterOutput<ObjectType, KeyType>(context, object, key, val);
+    return SafeV8_SetterOutput<ObjectType, KeyType>(isolate, object, key, val);
   }
 
   template<typename ObjectType, typename KeyType, typename GetObjectType, typename GetKeyType>
-  V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> SetField(Local<Context> context, ObjectType object, KeyType key, SafeV8_GetOutput<GetObjectType, GetKeyType> val)
+  V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> SetField(Isolate* isolate, ObjectType object, KeyType key, SafeV8_GetOutput<GetObjectType, GetKeyType> val)
   {
     SafeV8_SetterOutput<ObjectType, KeyType>* ptr;
 
     val.OnVal([&](Local<Value> result) {
-      ptr = new SafeV8_SetterOutput<ObjectType, KeyType>(context, object, key, result);
+      ptr = new SafeV8_SetterOutput<ObjectType, KeyType>(isolate, object, key, result);
     }).OnErr([&](Local<Value> exception) {
       ptr = new SafeV8_SetterOutput<ObjectType, KeyType>(exception);
     });

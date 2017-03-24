@@ -12,17 +12,8 @@
 #include "util-inl.h"
 #include "v8.h"
 #include "safe_v8.h"
-
 #include <stdlib.h>  // free()
 #include <string.h>  // strdup()
-
-//Code version
-//Default
-//#define B_SAFE_R 0
-//New Macro
-//#define B_SAFE_R 1
-//With Api
-#define B_SAFE_R 2
 
 // This is a binding to http_parser (https://github.com/joyent/http-parser)
 // The goal is to decouple sockets from parsing for more javascript-level
@@ -80,13 +71,13 @@ const uint32_t kOnExecute = 4;
 
 // helper class for the Parser
 struct StringPtr {
-  StringPtr() {
+  StringPtr( ) {
     on_heap_ = false;
     Reset();
   }
 
 
-  ~StringPtr() {
+  ~StringPtr( ) {
     Reset();
   }
 
@@ -94,7 +85,7 @@ struct StringPtr {
   // If str_ does not point to a heap string yet, this function makes it do
   // so. This is called at the end of each http_parser_execute() so as not
   // to leak references. See issue #2438 and test-http-parser-bad-ref.js.
-  void Save() {
+  void Save( ) {
     if (!on_heap_ && size_ > 0) {
       char* s = new char[size_];
       memcpy(s, str_, size_);
@@ -104,7 +95,7 @@ struct StringPtr {
   }
 
 
-  void Reset() {
+  void Reset( ) {
     if (on_heap_) {
       delete[] str_;
       on_heap_ = false;
@@ -161,13 +152,13 @@ class Parser : public AsyncWrap {
   }
 
 
-  ~Parser() override {
+  ~Parser( ) override {
     ClearWrap(object());
     persistent().Reset();
   }
 
 
-  size_t self_size() const override {
+  size_t self_size( ) const override {
     return sizeof(*this);
   }
 
@@ -368,10 +359,13 @@ class Parser : public AsyncWrap {
 
 
   static void New(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
     http_parser_type type =
         static_cast<http_parser_type>(args[0]->Int32Value());
-    CHECK(type == HTTP_REQUEST || type == HTTP_RESPONSE);
+    if(!(type==HTTP_REQUEST||type==HTTP_RESPONSE)) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(type==HTTP_REQUEST||type==HTTP_RESPONSE);");
+  }
     new Parser(env, args.This(), type);
   }
 
@@ -385,7 +379,7 @@ class Parser : public AsyncWrap {
   }
 
 
-  void Save() {
+  void Save( ) {
     url_.Save();
     status_message_.Save();
 
@@ -398,16 +392,33 @@ class Parser : public AsyncWrap {
     }
   }
 
-#if B_SAFE_R == 0
-  static void Execute(const FunctionCallbackInfo<Value>& args) {
-    Parser* parser;
-    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
-    CHECK(parser->current_buffer_.IsEmpty());
-    CHECK_EQ(parser->current_buffer_len_, 0);
-    CHECK_EQ(parser->current_buffer_data_, nullptr);
-    CHECK_EQ(Buffer::HasInstance(args[0]), true);
 
-    Local<Object> buffer_obj = args[0].As<Object>();
+  // var bytesParsed = parser->execute(buffer);
+  static void Execute(const FunctionCallbackInfo<Value>& args) {
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
+  Parser* parser;
+  ASSIGN_OR_RETURN_UNWRAP_SAFE(&parser, args.Holder());
+    if(!(parser->current_buffer_.IsEmpty())) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(parser->current_buffer_.IsEmpty());");
+    return safeV8::Done;
+  }
+    if(parser->current_buffer_len_ != 0) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(parser->current_buffer_len_,0);");
+    return safeV8::Done;
+  }
+    if(parser->current_buffer_data_ != nullptr) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(parser->current_buffer_data_,nullptr);");
+    return safeV8::Done;
+  }
+    if(Buffer::HasInstance(args[0]) != true) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(Buffer::HasInstance(args[0]),true);");
+    return safeV8::Done;
+  }
+
+    Local<Object> buffer_obj = args0;
     char* buffer_data = Buffer::Data(buffer_obj);
     size_t buffer_len = Buffer::Length(buffer_obj);
 
@@ -420,54 +431,24 @@ class Parser : public AsyncWrap {
 
     if (!ret.IsEmpty())
       args.GetReturnValue().Set(ret);
-  }
+  return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
-#elif B_SAFE_R == 2
-
-  static void Execute(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    v8::Isolate* isolate = env->isolate();
-
-    Parser* parser;
-    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
-    if(
-      (!parser->current_buffer_.IsEmpty()) ||
-      (parser->current_buffer_len_ != 0) ||
-      (parser->current_buffer_data_ != nullptr) ||
-      (!Buffer::HasInstance(args[0]))
-    ){
-      return env->ThrowTypeError("Invalid arguments");
-    }
-
-    return safeV8::With(isolate, args[0])
-    .OnVal([&](Local<Object> buffer_obj){
-      char* buffer_data = Buffer::Data(buffer_obj);
-      size_t buffer_len = Buffer::Length(buffer_obj);
-
-      // This is a hack to get the current_buffer to the callbacks with the least
-      // amount of overhead. Nothing else will run while http_parser_execute()
-      // runs, therefore this pointer can be set and used for the execution.
-      parser->current_buffer_ = buffer_obj;
-
-      Local<Value> ret = parser->Execute(buffer_data, buffer_len);
-
-      if (!ret.IsEmpty())
-        args.GetReturnValue().Set(ret);
-    })
-    .OnErr([&isolate](Local<Value> exception) {
-      isolate->ThrowException(exception);
-    });
-  }
-
-#endif
 
   static void Finish(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     Parser* parser;
     ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
 
-    CHECK(parser->current_buffer_.IsEmpty());
+    if(!(parser->current_buffer_.IsEmpty())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(parser->current_buffer_.IsEmpty());");
+  }
     parser->got_exception_ = false;
 
     int rv = http_parser_execute(&(parser->parser_), &settings, nullptr, 0);
@@ -488,70 +469,54 @@ class Parser : public AsyncWrap {
     }
   }
 
-#if B_SAFE_R == 0
+
   static void Reinitialize(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     http_parser_type type =
-      static_cast<http_parser_type>(args[0]->Int32Value());
+        static_cast<http_parser_type>(args[0]->Int32Value());
 
-    CHECK(type == HTTP_REQUEST || type == HTTP_RESPONSE);
+    if(!(type==HTTP_REQUEST||type==HTTP_RESPONSE)) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(type==HTTP_REQUEST||type==HTTP_RESPONSE);");
+  }
     Parser* parser;
     ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
     // Should always be called from the same context.
-    CHECK_EQ(env, parser->env());
+    if(env != parser->env()) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(env,parser->env());");
+  }
     parser->Init(type);
   }
 
-#elif B_SAFE_R == 2
-
-  static void Reinitialize(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    Isolate* isolate = env->isolate();
-
-    return safeV8::WithCoerce(isolate, args[0])
-    .OnVal([&](int32_t typeVal) {
-      http_parser_type type =
-        static_cast<http_parser_type>(typeVal);
-
-      if (!(type == HTTP_REQUEST || type == HTTP_RESPONSE)) {
-        return safeV8::Err(isolate, "Unexpected parser type");
-      }
-
-      Parser* parser;
-      ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder(), safeV8::Done);
-      // Should always be called from the same context.
-      if (!(env == parser->env())) {
-        return safeV8::Err(isolate, "Parser not called from the same context");
-      }
-
-      parser->Init(type);
-      return safeV8::Done;
-    })
-    .OnErr([&isolate](Local<Value> exception) {
-      isolate->ThrowException(exception);
-    });
-  }
-
-#endif
 
   template <bool should_pause>
   static void Pause(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
     Parser* parser;
     ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
     // Should always be called from the same context.
-    CHECK_EQ(env, parser->env());
+    if(env != parser->env()) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(env,parser->env());");
+  }
     http_parser_pause(&parser->parser_, should_pause);
   }
 
-#if B_SAFE_R == 0
+
   static void Consume(const FunctionCallbackInfo<Value>& args) {
-    Parser* parser;
-    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
-    Local<External> stream_obj = args[0].As<External>();
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<External> args0) -> safeV8::SafeV8Promise_Base {
+  Parser* parser;
+  ASSIGN_OR_RETURN_UNWRAP_SAFE(&parser, args.Holder());
+    Local<External> stream_obj = args0;
     StreamBase* stream = static_cast<StreamBase*>(stream_obj->Value());
-    CHECK_NE(stream, nullptr);
+    if(stream == nullptr) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_NE(stream,nullptr);");
+    return safeV8::Done;
+  }
 
     stream->Consume();
 
@@ -560,44 +525,17 @@ class Parser : public AsyncWrap {
 
     stream->set_alloc_cb({ OnAllocImpl, parser });
     stream->set_read_cb({ OnReadImpl, parser });
-  }
+  return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
-#elif B_SAFE_R == 2
 
-  static void Consume(const FunctionCallbackInfo<Value>& args) {
-    Parser* parser;
-    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
-
-    Environment* env = Environment::GetCurrent(args);
-    Isolate* isolate = env->isolate();
-
-    return safeV8::With(isolate, args[0])
-    .OnVal([&](Local<External> stream_obj) {
-      StreamBase* stream = static_cast<StreamBase*>(stream_obj->Value());
-
-      if (stream == nullptr) {
-        return safeV8::Err(isolate, "No stream object found in argument");
-      }
-
-      stream->Consume();
-
-      parser->prev_alloc_cb_ = stream->alloc_cb();
-      parser->prev_read_cb_ = stream->read_cb();
-
-      stream->set_alloc_cb({ OnAllocImpl, parser });
-      stream->set_read_cb({ OnReadImpl, parser });
-      return safeV8::Done;
-    })
-    .OnErr([&isolate](Local<Value> exception) {
-      isolate->ThrowException(exception);
-    });
-  }
-
-#endif
-
-#if B_SAFE_R == 0
   static void Unconsume(const FunctionCallbackInfo<Value>& args) {
-    Parser* parser;
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Parser* parser;
     ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
 
     // Already unconsumed
@@ -618,44 +556,6 @@ class Parser : public AsyncWrap {
     parser->prev_read_cb_.clear();
   }
 
-#elif B_SAFE_R == 2
-
-  static void Unconsume(const FunctionCallbackInfo<Value>& args) {
-    Parser* parser;
-    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
-
-    Environment* env = Environment::GetCurrent(args);
-    Isolate* isolate = env->isolate();
-
-    // Already unconsumed
-    if (parser->prev_alloc_cb_.is_empty())
-      return;
-
-    // Restore stream's callbacks
-    if (args.Length() == 1) {
-
-      safeV8::With(isolate, args[0])
-      .OnVal([&](Local<External> stream_obj) {
-        StreamBase* stream = static_cast<StreamBase*>(stream_obj->Value());
-        if (stream == nullptr)
-        {
-          return safeV8::Err(isolate, "Stream object was null");
-        }
-
-        stream->set_alloc_cb(parser->prev_alloc_cb_);
-        stream->set_read_cb(parser->prev_read_cb_);
-
-        return safeV8::Done;
-      })
-      .OnErr([&](Local<Value> exception) {
-      });
-    }
-
-    parser->prev_alloc_cb_.clear();
-    parser->prev_read_cb_.clear();
-  }
-
-#endif
 
   static void GetCurrentBuffer(const FunctionCallbackInfo<Value>& args) {
     Parser* parser;
@@ -677,7 +577,7 @@ class Parser : public AsyncWrap {
       p_->refcount_++;
     }
 
-    ~ScopedRetainParser() {
+    ~ScopedRetainParser( ) {
       if (0 == --p_->refcount_)
         delete p_;
     }
@@ -786,7 +686,7 @@ class Parser : public AsyncWrap {
     return scope.Escape(nparsed_obj);
   }
 
-  Local<Array> CreateHeaders() {
+  Local<Array> CreateHeaders( ) {
     Local<Array> headers = Array::New(env()->isolate());
     Local<Function> fn = env()->push_values_to_array_function();
     Local<Value> argv[NODE_PUSH_VAL_TO_ARRAY_MAX * 2];
@@ -810,7 +710,7 @@ class Parser : public AsyncWrap {
 
 
   // spill headers and request path to JS land
-  void Flush() {
+  void Flush( ) {
     HandleScope scope(env()->isolate());
 
     Local<Object> obj = object();

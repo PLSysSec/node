@@ -2247,7 +2247,7 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
         auto name = FIXED_ONE_BYTE_STRING(env->isolate(), "zeroFill");
         auto value = Uint32Array::New(array_buffer, 0, 1);
 
-        return safeV8::SetField(isolate, binding_object, name, value);
+        return safeV8::Set(isolate, binding_object, name, value);
       });
     }
 

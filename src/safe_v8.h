@@ -11,7 +11,7 @@ namespace safeV8 {
 
 
 #define DEFINE_TY_VAL(Type) \
-  bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, Local<Type>& outVal, Local<Value>& err, bool& hasError);
+  bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, Local<v8::Type>& outVal, Local<Value>& err, bool& hasError);
 
 #define TYPE_LIST(V)   \
   V(Array)             \
@@ -64,8 +64,6 @@ namespace safeV8 {
     //int64 version
     bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, int64_t& outVal, Local<Value>& err, bool& hasError);
 
-  bool SafeV8ToString(Isolate* isolate, Local<Value> v, Local<String>& outStringVal, Local<Value>& err, bool& hasError);
-
   /* Returns the first argument type of a given lambda */
 
   template<typename Ret, typename Arg, typename... Rest>
@@ -116,6 +114,58 @@ namespace safeV8 {
 
   template <typename T>
   using third_argument = decltype(third_argument_helper(std::declval<T>()));
+
+  /* Returns the fourth argument type of a given lambda */
+
+  template<typename Ret, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename... Rest>
+  Arg4 fourth_argument_helper(Ret(*) (Arg, Arg2, Arg3, Arg4, Rest...));
+
+  template<typename Ret, typename F, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename... Rest>
+  Arg4 fourth_argument_helper(Ret(F::*) (Arg, Arg2, Arg3, Arg4, Rest...));
+
+  template<typename Ret, typename F, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename... Rest>
+  Arg4 fourth_argument_helper(Ret(F::*) (Arg, Arg2, Arg3, Arg4, Rest...) const);
+
+  template <typename F>
+  decltype(fourth_argument_helper(&F::operator())) fourth_argument_helper(F);
+
+  template <typename T>
+  using fourth_argument = decltype(fourth_argument_helper(std::declval<T>()));
+
+  /* Returns the fifth argument type of a given lambda */
+
+  template<typename Ret, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename... Rest>
+  Arg5 fifth_argument_helper(Ret(*) (Arg, Arg2, Arg3, Arg4, Arg5, Rest...));
+
+  template<typename Ret, typename F, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename... Rest>
+  Arg5 fifth_argument_helper(Ret(F::*) (Arg, Arg2, Arg3, Arg4, Arg5, Rest...));
+
+  template<typename Ret, typename F, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename... Rest>
+  Arg5 fifth_argument_helper(Ret(F::*) (Arg, Arg2, Arg3, Arg4, Arg5, Rest...) const);
+
+  template <typename F>
+  decltype(fifth_argument_helper(&F::operator())) fifth_argument_helper(F);
+
+  template <typename T>
+  using fifth_argument = decltype(fifth_argument_helper(std::declval<T>()));
+
+  /* Returns the sixth argument type of a given lambda */
+
+  template<typename Ret, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename Arg6, typename... Rest>
+  Arg6 sixth_argument_helper(Ret(*) (Arg, Arg2, Arg3, Arg4, Arg5, Arg6, Rest...));
+
+  template<typename Ret, typename F, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename Arg6, typename... Rest>
+  Arg6 sixth_argument_helper(Ret(F::*) (Arg, Arg2, Arg3, Arg4, Arg5, Arg6, Rest...));
+
+  template<typename Ret, typename F, typename Arg, typename Arg2, typename Arg3, typename Arg4, typename Arg5, typename Arg6, typename... Rest>
+  Arg6 sixth_argument_helper(Ret(F::*) (Arg, Arg2, Arg3, Arg4, Arg5, Arg6, Rest...) const);
+
+  template <typename F>
+  decltype(sixth_argument_helper(&F::operator())) sixth_argument_helper(F);
+
+  template <typename T>
+  using sixth_argument = decltype(sixth_argument_helper(std::declval<T>()));
+
 
   /* Returns the return argument type of a given lambda */
 
@@ -407,12 +457,342 @@ namespace safeV8 {
     }
   };
 
+    /* Class which handles 4 output value case */
+  class SafeV8Promise_GetOutput4 : public SafeV8Promise_Base
+  {
+  private:
+    Isolate* isolate;
+    Local<Value> v1;
+    Local<Value> v2;
+    Local<Value> v3;
+    Local<Value> v4;
+  public:
+    SafeV8Promise_GetOutput4(Isolate* _isolate, Local<Value> _v1, Local<Value> _v2, Local<Value> _v3, Local<Value> _v4) : isolate(_isolate), v1(_v1), v2(_v2), v3(_v3), v4(_v4) {}
+
+    //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput4>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+    {
+      first_argument<F> obj1;
+      second_argument<F> obj2;
+      third_argument<F> obj3;
+      fourth_argument<F> obj4;
+      if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
+      {
+        if (SafeV8ConvertVal(isolate, v2, obj2, err, exceptionThrown))
+        {
+          if (SafeV8ConvertVal(isolate, v3, obj3, err, exceptionThrown))
+          {
+            if (SafeV8ConvertVal(isolate, v4, obj4, err, exceptionThrown))
+            {
+              func(obj1, obj2, obj3, obj4);
+              return *this;
+            }
+          }
+        }
+      }
+
+      if (!customException.IsEmpty())
+      {
+        err = customException;
+      }
+      return *this;
+    }
+
+    //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput4>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+    {
+      first_argument<F> obj1;
+      second_argument<F> obj2;
+      third_argument<F> obj3;
+      fourth_argument<F> obj4;
+      if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
+      {
+        if (SafeV8ConvertVal(isolate, v2, obj2, err, exceptionThrown))
+        {
+          if (SafeV8ConvertVal(isolate, v3, obj3, err, exceptionThrown))
+          {
+            if (SafeV8ConvertVal(isolate, v4, obj4, err, exceptionThrown))
+            {
+              SafeV8Promise_Base nestedCall = func(obj1, obj2, obj3, obj4);
+              exceptionThrown = nestedCall.GetIsExceptionThrown();
+              err = nestedCall.GetException();
+              return *this;
+            }
+          }
+        }
+      }
+
+      if (!customException.IsEmpty())
+      {
+        err = customException;
+      }
+      return *this;
+    }
+
+    //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
+    template<typename F>
+    typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
+    {
+      if (exceptionThrown)
+      {
+        func(err);
+      }
+    }
+
+    //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput4>::type OnErr(F func)
+    {
+      if (exceptionThrown)
+      {
+        SafeV8Promise_Base nestedCall = func(err);
+        exceptionThrown = nestedCall.GetIsExceptionThrown();
+        err = nestedCall.GetException();
+      }
+      return *this;
+    }
+  };
+
+  /* Class which handles 5 output value case */
+  class SafeV8Promise_GetOutput5 : public SafeV8Promise_Base
+  {
+  private:
+    Isolate* isolate;
+    Local<Value> v1;
+    Local<Value> v2;
+    Local<Value> v3;
+    Local<Value> v4;
+    Local<Value> v5;
+  public:
+    SafeV8Promise_GetOutput5(Isolate* _isolate, Local<Value> _v1, Local<Value> _v2, Local<Value> _v3, Local<Value> _v4, Local<Value> _v5) : isolate(_isolate), v1(_v1), v2(_v2), v3(_v3), v4(_v4), v5(_v5) {}
+
+    //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput5>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+    {
+      first_argument<F> obj1;
+      second_argument<F> obj2;
+      third_argument<F> obj3;
+      fourth_argument<F> obj4;
+      fifth_argument<F> obj5;
+      if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
+      {
+        if (SafeV8ConvertVal(isolate, v2, obj2, err, exceptionThrown))
+        {
+          if (SafeV8ConvertVal(isolate, v3, obj3, err, exceptionThrown))
+          {
+            if (SafeV8ConvertVal(isolate, v4, obj4, err, exceptionThrown))
+            {
+              if (SafeV8ConvertVal(isolate, v5, obj5, err, exceptionThrown))
+              {
+                func(obj1, obj2, obj3, obj4, obj5);
+                return *this;
+              }
+            }
+          }
+        }
+      }
+
+      if (!customException.IsEmpty())
+      {
+        err = customException;
+      }
+      return *this;
+    }
+
+    //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput5>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+    {
+      first_argument<F> obj1;
+      second_argument<F> obj2;
+      third_argument<F> obj3;
+      fourth_argument<F> obj4;
+      fifth_argument<F> obj5;
+      if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
+      {
+        if (SafeV8ConvertVal(isolate, v2, obj2, err, exceptionThrown))
+        {
+          if (SafeV8ConvertVal(isolate, v3, obj3, err, exceptionThrown))
+          {
+            if (SafeV8ConvertVal(isolate, v4, obj4, err, exceptionThrown))
+            {
+              if (SafeV8ConvertVal(isolate, v5, obj5, err, exceptionThrown))
+              {
+                SafeV8Promise_Base nestedCall = func(obj1, obj2, obj3, obj4, obj5);
+                exceptionThrown = nestedCall.GetIsExceptionThrown();
+                err = nestedCall.GetException();
+                return *this;
+              }
+            }
+          }
+        }
+      }
+
+      if (!customException.IsEmpty())
+      {
+        err = customException;
+      }
+      return *this;
+    }
+
+    //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
+    template<typename F>
+    typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
+    {
+      if (exceptionThrown)
+      {
+        func(err);
+      }
+    }
+
+    //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput5>::type OnErr(F func)
+    {
+      if (exceptionThrown)
+      {
+        SafeV8Promise_Base nestedCall = func(err);
+        exceptionThrown = nestedCall.GetIsExceptionThrown();
+        err = nestedCall.GetException();
+      }
+      return *this;
+    }
+  };
+
+  /* Class which handles 6 output value case */
+  class SafeV8Promise_GetOutput6 : public SafeV8Promise_Base
+  {
+  private:
+    Isolate* isolate;
+    Local<Value> v1;
+    Local<Value> v2;
+    Local<Value> v3;
+    Local<Value> v4;
+    Local<Value> v5;
+    Local<Value> v6;
+  public:
+    SafeV8Promise_GetOutput6(Isolate* _isolate, Local<Value> _v1, Local<Value> _v2, Local<Value> _v3, Local<Value> _v4, Local<Value> _v5, Local<Value> _v6) : isolate(_isolate), v1(_v1), v2(_v2), v3(_v3), v4(_v4), v5(_v5), v6(_v6) {}
+
+    //Returns the marshalled and converted values. The lambda provided does not marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_same<return_argument<F>, void>::value, SafeV8Promise_GetOutput6>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+    {
+      first_argument<F> obj1;
+      second_argument<F> obj2;
+      third_argument<F> obj3;
+      fourth_argument<F> obj4;
+      fifth_argument<F> obj5;
+      sixth_argument<F> obj6;
+      if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
+      {
+        if (SafeV8ConvertVal(isolate, v2, obj2, err, exceptionThrown))
+        {
+          if (SafeV8ConvertVal(isolate, v3, obj3, err, exceptionThrown))
+          {
+            if (SafeV8ConvertVal(isolate, v4, obj4, err, exceptionThrown))
+            {
+              if (SafeV8ConvertVal(isolate, v5, obj5, err, exceptionThrown))
+              {
+                if (SafeV8ConvertVal(isolate, v6, obj6, err, exceptionThrown))
+                {
+                  func(obj1, obj2, obj3, obj4, obj5, obj6);
+                  return *this;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!customException.IsEmpty())
+      {
+        err = customException;
+      }
+      return *this;
+    }
+
+    //Returns the marshalled and converted values. The lambda provided does marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput6>::type OnVal(F func, v8::Local<v8::Value> customException = v8::Local<v8::Value>())
+    {
+      first_argument<F> obj1;
+      second_argument<F> obj2;
+      third_argument<F> obj3;
+      fourth_argument<F> obj4;
+      fifth_argument<F> obj5;
+      sixth_argument<F> obj6;
+      if (SafeV8ConvertVal(isolate, v1, obj1, err, exceptionThrown))
+      {
+        if (SafeV8ConvertVal(isolate, v2, obj2, err, exceptionThrown))
+        {
+          if (SafeV8ConvertVal(isolate, v3, obj3, err, exceptionThrown))
+          {
+            if (SafeV8ConvertVal(isolate, v4, obj4, err, exceptionThrown))
+            {
+              if (SafeV8ConvertVal(isolate, v5, obj5, err, exceptionThrown))
+              {
+                if (SafeV8ConvertVal(isolate, v6, obj6, err, exceptionThrown))
+                {
+                  SafeV8Promise_Base nestedCall = func(obj1, obj2, obj3, obj4, obj5, obj6);
+                  exceptionThrown = nestedCall.GetIsExceptionThrown();
+                  err = nestedCall.GetException();
+                  return *this;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!customException.IsEmpty())
+      {
+        err = customException;
+      }
+      return *this;
+    }
+
+    //Handle any errors caught so far. The error handling lambda provided does not marshal additional values inside
+    template<typename F>
+    typename std::enable_if<std::is_same<return_argument<F>, void>::value, void>::type OnErr(F func)
+    {
+      if (exceptionThrown)
+      {
+        func(err);
+      }
+    }
+
+    //Handle any errors caught so far. The error handling lambda provided does marshal additional values inside
+    template<typename F>
+    V8_WARN_UNUSED_RESULT typename std::enable_if<std::is_base_of<SafeV8Promise_Base, return_argument<F>>::value, SafeV8Promise_GetOutput6>::type OnErr(F func)
+    {
+      if (exceptionThrown)
+      {
+        SafeV8Promise_Base nestedCall = func(err);
+        exceptionThrown = nestedCall.GetIsExceptionThrown();
+        err = nestedCall.GetException();
+      }
+      return *this;
+    }
+  };
+
+
   /* Entry point to users who want to use the SafeV8 api api */
   V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput1 With(Isolate* isolate, Local<Value> first);
 
   V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput2 With(Isolate* isolate, Local<Value> first, Local<Value> second);
 
   V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput3 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third);
+
+  V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput4 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third, Local<Value> fourth);
+
+  V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput5 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third, Local<Value> fourth, Local<Value> fifth);
+
+  V8_WARN_UNUSED_RESULT SafeV8Promise_GetOutput6 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third, Local<Value> fourth, Local<Value> fifth, Local<Value> sixth);
+
+
 
   //////// Get API ////////////
 
@@ -614,13 +994,13 @@ GetStyleAPI(GetOwnPropertyDescriptor, Value)
   };
 
   template<typename ObjectType, typename KeyType>
-  V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> SetField(Isolate* isolate, ObjectType object, KeyType key, Local<Value> val)
+  V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> Set(Isolate* isolate, ObjectType object, KeyType key, Local<Value> val)
   {
     return SafeV8_SetterOutput<ObjectType, KeyType>(isolate, object, key, val);
   }
 
   template<typename ObjectType, typename KeyType, typename GetObjectType, typename GetKeyType>
-  V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> SetField(Isolate* isolate, ObjectType object, KeyType key, SafeV8_GetOutput<GetObjectType, GetKeyType> val)
+  V8_WARN_UNUSED_RESULT inline SafeV8_SetterOutput<ObjectType, KeyType> Set(Isolate* isolate, ObjectType object, KeyType key, SafeV8_GetOutput<GetObjectType, GetKeyType> val)
   {
     SafeV8_SetterOutput<ObjectType, KeyType>* ptr;
 
@@ -809,9 +1189,9 @@ ToStringStyleAPI(GetOwnPropertyNames, Array, Object)
 
 
 #define DEFINE_TY_VAL(Type) \
-  inline bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, Local<Type>& outVal, Local<Value>& err, bool& hasError) { \
+  inline bool SafeV8ConvertVal(Isolate* isolate, Local<Value> v, Local<v8::Type>& outVal, Local<Value>& err, bool& hasError) { \
     if (v->Is##Type()) { \
-      outVal = v.As<Type>(); \
+      outVal = v.As<v8::Type>(); \
       hasError = false; \
       return true; \
     } else { \
@@ -959,6 +1339,21 @@ ToStringStyleAPI(GetOwnPropertyNames, Array, Object)
   V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput3 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third)
   {
     return SafeV8Promise_GetOutput3(isolate, first, second, third);
+  }
+
+  V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput4 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third, Local<Value> fourth)
+  {
+    return SafeV8Promise_GetOutput4(isolate, first, second, third, fourth);
+  }
+
+  V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput5 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third, Local<Value> fourth, Local<Value> fifth)
+  {
+    return SafeV8Promise_GetOutput5(isolate, first, second, third, fourth, fifth);
+  }
+
+  V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput6 With(Isolate* isolate, Local<Value> first, Local<Value> second, Local<Value> third, Local<Value> fourth, Local<Value> fifth, Local<Value> sixth)
+  {
+    return SafeV8Promise_GetOutput6(isolate, first, second, third, fourth, fifth, sixth);
   }
 
   V8_WARN_UNUSED_RESULT inline SafeV8Promise_GetOutput_Coerce1 WithCoerce(Isolate* isolate, Local<Value> first)

@@ -94,6 +94,11 @@ typedef int mode_t;
 extern char **environ;
 #endif
 
+#define CONCATSTR2(STR1, STR2) STR1 STR2
+#define CONCATSTR3(STR1, STR2, STR3) STR1 STR2 STR3
+#define CONCATSTR4(STR1, STR2, STR3, STR4) STR1 STR2 STR3 STR4
+#define CONCATSTR5(STR1, STR2, STR3, STR4, STR5) STR1 STR2 STR3 STR4 STR5
+
 namespace node {
 
 using v8::Array;
@@ -2409,12 +2414,7 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
     char errmsg[1024];
     snprintf(errmsg,
              sizeof(errmsg),
-             "The module '%s'"
-             "\nwas compiled against a different Node.js version using"
-             "\nNODE_MODULE_VERSION %d. This version of Node.js requires"
-             "\nNODE_MODULE_VERSION %d. Please try re-compiling or "
-             "re-installing\nthe module (for instance, using `npm rebuild` or"
-             "`npm install`).",
+             "The module '%s'\nwas compiled against a different Node.js version using\nNODE_MODULE_VERSION %d. This version of Node.js requires\nNODE_MODULE_VERSION %d. Please try re-compiling or re-installing\nthe module (for instance, using `npm rebuild` or`npm install`).",
              *filename, mp->nm_version, NODE_MODULE_VERSION);
 
     // NOTE: `mp` is allocated inside of the shared library's memory, calling
@@ -3002,11 +3002,12 @@ void SetupProcessObject(Environment* env,
   Local<Object> versions = Object::New(env->isolate());
   READONLY_PROPERTY(process, "versions", versions);
 
-  const char http_parser_version[] = NODE_STRINGIFY(HTTP_PARSER_VERSION_MAJOR)
-                                     "."
-                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_MINOR)
-                                     "."
-                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_PATCH);
+  const char http_parser_version[] = CONCATSTR5(
+                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_MAJOR),
+                                     ".",
+                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_MINOR),
+                                     ".",
+                                     NODE_STRINGIFY(HTTP_PARSER_VERSION_PATCH));
   READONLY_PROPERTY(versions,
                     "http_parser",
                     FIXED_ONE_BYTE_STRING(env->isolate(), http_parser_version));
@@ -3112,19 +3113,19 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(release,
                     "sourceUrl",
                     OneByteString(env->isolate(),
-                    NODE_RELEASE_URLFPFX ".tar.gz"));
+                    /*NODE_RELEASE_URLFPFX*/ ".tar.gz"));
   READONLY_PROPERTY(release,
                     "headersUrl",
                     OneByteString(env->isolate(),
-                    NODE_RELEASE_URLFPFX "-headers.tar.gz"));
+                    /*NODE_RELEASE_URLFPFX*/ "-headers.tar.gz"));
 #  ifdef _WIN32
   READONLY_PROPERTY(release,
                     "libUrl",
                     OneByteString(env->isolate(),
-                    strcmp(NODE_ARCH, "ia32") ? NODE_RELEASE_URLPFX "win-"
-                                                NODE_ARCH "/node.lib"
-                                              : NODE_RELEASE_URLPFX
-                                                "win-x86/node.lib"));
+                    strcmp(NODE_ARCH, "ia32") ? CONCATSTR4(NODE_RELEASE_URLPFX, "win-",
+                                                NODE_ARCH, "/node.lib")
+                                              : CONCATSTR2(NODE_RELEASE_URLPFX,
+                                                "win-x86/node.lib")));
 #  endif
 #endif
 
@@ -3529,69 +3530,69 @@ static void PrintHelp() {
   // XXX: If you add an option here, please also add it to doc/node.1 and
   // doc/api/cli.md
   printf("Usage: node [options] [ -e script | script.js ] [arguments] \n"
-         "       node debug script.js [arguments] \n"
-         "\n"
-         "Options:\n"
-         "  -v, --version         print Node.js version\n"
-         "  -e, --eval script     evaluate script\n"
-         "  -p, --print           evaluate script and print result\n"
-         "  -c, --check           syntax check script without executing\n"
-         "  -i, --interactive     always enter the REPL even if stdin\n"
-         "                        does not appear to be a terminal\n"
-         "  -r, --require         module to preload (option can be repeated)\n"
-         "  --no-deprecation      silence deprecation warnings\n"
-         "  --trace-deprecation   show stack traces on deprecations\n"
-         "  --throw-deprecation   throw an exception anytime a deprecated "
-         "function is used\n"
-         "  --no-warnings         silence all process warnings\n"
-         "  --trace-warnings      show stack traces on process warnings\n"
-         "  --trace-sync-io       show stack trace when use of sync IO\n"
-         "                        is detected after the first tick\n"
-         "  --track-heap-objects  track heap object allocations for heap "
-         "snapshots\n"
-         "  --prof-process        process v8 profiler output generated\n"
-         "                        using --prof\n"
-         "  --zero-fill-buffers   automatically zero-fill all newly allocated\n"
-         "                        Buffer and SlowBuffer instances\n"
-         "  --v8-options          print v8 command line options\n"
-         "  --v8-pool-size=num    set v8's thread pool size\n"
-#if HAVE_OPENSSL
-         "  --tls-cipher-list=val use an alternative default TLS cipher list\n"
-#if NODE_FIPS_MODE
-         "  --enable-fips         enable FIPS crypto at startup\n"
-         "  --force-fips          force FIPS crypto (cannot be disabled)\n"
-#endif  /* NODE_FIPS_MODE */
-         "  --openssl-config=path load OpenSSL configuration file from the\n"
-         "                        specified path\n"
-#endif /* HAVE_OPENSSL */
-#if defined(NODE_HAVE_I18N_SUPPORT)
-         "  --icu-data-dir=dir    set ICU data load path to dir\n"
-         "                        (overrides NODE_ICU_DATA)\n"
-#if !defined(NODE_HAVE_SMALL_ICU)
-         "                        note: linked-in ICU data is\n"
-         "                        present.\n"
-#endif
-         "  --preserve-symlinks   preserve symbolic links when resolving\n"
-         "                        and caching modules.\n"
-#endif
-         "\n"
-         "Environment variables:\n"
-#ifdef _WIN32
-         "NODE_PATH                ';'-separated list of directories\n"
-#else
-         "NODE_PATH                ':'-separated list of directories\n"
-#endif
-         "                         prefixed to the module search path.\n"
-         "NODE_DISABLE_COLORS      set to 1 to disable colors in the REPL\n"
-#if defined(NODE_HAVE_I18N_SUPPORT)
-         "NODE_ICU_DATA            data path for ICU (Intl object) data\n"
-#if !defined(NODE_HAVE_SMALL_ICU)
-         "                         (will extend linked-in data)\n"
-#endif
-#endif
-         "NODE_REPL_HISTORY        path to the persistent REPL history file\n"
-         "\n"
-         "Documentation can be found at https://nodejs.org/\n");
+//         "       node debug script.js [arguments] \n"
+//         "\n"
+//         "Options:\n"
+//         "  -v, --version         print Node.js version\n"
+//         "  -e, --eval script     evaluate script\n"
+//         "  -p, --print           evaluate script and print result\n"
+//         "  -c, --check           syntax check script without executing\n"
+//         "  -i, --interactive     always enter the REPL even if stdin\n"
+//         "                        does not appear to be a terminal\n"
+//         "  -r, --require         module to preload (option can be repeated)\n"
+//         "  --no-deprecation      silence deprecation warnings\n"
+//         "  --trace-deprecation   show stack traces on deprecations\n"
+//         "  --throw-deprecation   throw an exception anytime a deprecated "
+//         "function is used\n"
+//         "  --no-warnings         silence all process warnings\n"
+//         "  --trace-warnings      show stack traces on process warnings\n"
+//         "  --trace-sync-io       show stack trace when use of sync IO\n"
+//         "                        is detected after the first tick\n"
+//         "  --track-heap-objects  track heap object allocations for heap "
+//         "snapshots\n"
+//         "  --prof-process        process v8 profiler output generated\n"
+//         "                        using --prof\n"
+//         "  --zero-fill-buffers   automatically zero-fill all newly allocated\n"
+//         "                        Buffer and SlowBuffer instances\n"
+//         "  --v8-options          print v8 command line options\n"
+//         "  --v8-pool-size=num    set v8's thread pool size\n"
+//#if HAVE_OPENSSL
+//         "  --tls-cipher-list=val use an alternative default TLS cipher list\n"
+//#if NODE_FIPS_MODE
+//         "  --enable-fips         enable FIPS crypto at startup\n"
+//         "  --force-fips          force FIPS crypto (cannot be disabled)\n"
+//#endif  /* NODE_FIPS_MODE */
+//         "  --openssl-config=path load OpenSSL configuration file from the\n"
+//         "                        specified path\n"
+//#endif /* HAVE_OPENSSL */
+//#if defined(NODE_HAVE_I18N_SUPPORT)
+//         "  --icu-data-dir=dir    set ICU data load path to dir\n"
+//         "                        (overrides NODE_ICU_DATA)\n"
+//#if !defined(NODE_HAVE_SMALL_ICU)
+//         "                        note: linked-in ICU data is\n"
+//         "                        present.\n"
+//#endif
+//         "  --preserve-symlinks   preserve symbolic links when resolving\n"
+//         "                        and caching modules.\n"
+//#endif
+//         "\n"
+//         "Environment variables:\n"
+//#ifdef _WIN32
+//         "NODE_PATH                ';'-separated list of directories\n"
+//#else
+//         "NODE_PATH                ':'-separated list of directories\n"
+//#endif
+//         "                         prefixed to the module search path.\n"
+//         "NODE_DISABLE_COLORS      set to 1 to disable colors in the REPL\n"
+//#if defined(NODE_HAVE_I18N_SUPPORT)
+//         "NODE_ICU_DATA            data path for ICU (Intl object) data\n"
+//#if !defined(NODE_HAVE_SMALL_ICU)
+//         "                         (will extend linked-in data)\n"
+//#endif
+//#endif
+//         "NODE_REPL_HISTORY        path to the persistent REPL history file\n"
+//         "\n"
+/*         "Documentation can be found at https://nodejs.org/\n"*/);
 }
 
 
@@ -4235,8 +4236,7 @@ void Init(int* argc,
   // Initialize ICU.
   // If icu_data_dir is nullptr here, it will load the 'minimal' data.
   if (!i18n::InitializeICUDirectory(icu_data_dir)) {
-    FatalError(nullptr, "Could not initialize ICU "
-                     "(check NODE_ICU_DATA or --icu-data-dir parameters)");
+    FatalError(nullptr, "Could not initialize ICU (check NODE_ICU_DATA or --icu-data-dir parameters)");
   }
 #endif
   // The const_cast doesn't violate conceptual const-ness.  V8 doesn't modify

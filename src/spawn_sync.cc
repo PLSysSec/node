@@ -24,7 +24,8 @@ using v8::String;
 using v8::Value;
 
 
-SyncProcessOutputBuffer::SyncProcessOutputBuffer()
+SyncProcessOutputBuffer::SyncProcessOutputBuffer(
+    )
     : used_(0),
       next_(nullptr) {
 }
@@ -52,17 +53,17 @@ size_t SyncProcessOutputBuffer::Copy(char* dest) const {
 }
 
 
-unsigned int SyncProcessOutputBuffer::available() const {
+unsigned int SyncProcessOutputBuffer::available( ) const {
   return sizeof data_ - used();
 }
 
 
-unsigned int SyncProcessOutputBuffer::used() const {
+unsigned int SyncProcessOutputBuffer::used( ) const {
   return used_;
 }
 
 
-SyncProcessOutputBuffer* SyncProcessOutputBuffer::next() const {
+SyncProcessOutputBuffer* SyncProcessOutputBuffer::next( ) const {
   return next_;
 }
 
@@ -93,7 +94,7 @@ SyncProcessStdioPipe::SyncProcessStdioPipe(SyncProcessRunner* process_handler,
 }
 
 
-SyncProcessStdioPipe::~SyncProcessStdioPipe() {
+SyncProcessStdioPipe::~SyncProcessStdioPipe( ) {
   CHECK(lifecycle_ == kUninitialized || lifecycle_ == kClosed);
 
   SyncProcessOutputBuffer* buf;
@@ -120,7 +121,7 @@ int SyncProcessStdioPipe::Initialize(uv_loop_t* loop) {
 }
 
 
-int SyncProcessStdioPipe::Start() {
+int SyncProcessStdioPipe::Start( ) {
   CHECK_EQ(lifecycle_, kInitialized);
 
   // Set the busy flag already. If this function fails no recovery is
@@ -155,7 +156,7 @@ int SyncProcessStdioPipe::Start() {
 }
 
 
-void SyncProcessStdioPipe::Close() {
+void SyncProcessStdioPipe::Close( ) {
   CHECK(lifecycle_ == kInitialized || lifecycle_ == kStarted);
 
   uv_close(uv_handle(), CloseCallback);
@@ -172,17 +173,17 @@ Local<Object> SyncProcessStdioPipe::GetOutputAsBuffer(Environment* env) const {
 }
 
 
-bool SyncProcessStdioPipe::readable() const {
+bool SyncProcessStdioPipe::readable( ) const {
   return readable_;
 }
 
 
-bool SyncProcessStdioPipe::writable() const {
+bool SyncProcessStdioPipe::writable( ) const {
   return writable_;
 }
 
 
-uv_stdio_flags SyncProcessStdioPipe::uv_flags() const {
+uv_stdio_flags SyncProcessStdioPipe::uv_flags( ) const {
   unsigned int flags;
 
   flags = UV_CREATE_PIPE;
@@ -195,23 +196,23 @@ uv_stdio_flags SyncProcessStdioPipe::uv_flags() const {
 }
 
 
-uv_pipe_t* SyncProcessStdioPipe::uv_pipe() const {
+uv_pipe_t* SyncProcessStdioPipe::uv_pipe( ) const {
   CHECK_LT(lifecycle_, kClosing);
   return &uv_pipe_;
 }
 
 
-uv_stream_t* SyncProcessStdioPipe::uv_stream() const {
+uv_stream_t* SyncProcessStdioPipe::uv_stream( ) const {
   return reinterpret_cast<uv_stream_t*>(uv_pipe());
 }
 
 
-uv_handle_t* SyncProcessStdioPipe::uv_handle() const {
+uv_handle_t* SyncProcessStdioPipe::uv_handle( ) const {
   return reinterpret_cast<uv_handle_t*>(uv_pipe());
 }
 
 
-size_t SyncProcessStdioPipe::OutputLength() const {
+size_t SyncProcessStdioPipe::OutputLength( ) const {
   SyncProcessOutputBuffer* buf;
   size_t size = 0;
 
@@ -281,7 +282,7 @@ void SyncProcessStdioPipe::OnShutdownDone(int result) {
 }
 
 
-void SyncProcessStdioPipe::OnClose() {
+void SyncProcessStdioPipe::OnClose( ) {
   lifecycle_ = kClosed;
 }
 
@@ -393,7 +394,7 @@ SyncProcessRunner::SyncProcessRunner(Environment* env)
 }
 
 
-SyncProcessRunner::~SyncProcessRunner() {
+SyncProcessRunner::~SyncProcessRunner( ) {
   CHECK_EQ(lifecycle_, kHandlesClosed);
 
   if (stdio_pipes_ != nullptr) {
@@ -412,7 +413,7 @@ SyncProcessRunner::~SyncProcessRunner() {
 }
 
 
-Environment* SyncProcessRunner::env() const {
+Environment* SyncProcessRunner::env( ) const {
   return env_;
 }
 
@@ -492,7 +493,7 @@ void SyncProcessRunner::TryInitializeAndRunLoop(Local<Value> options) {
 }
 
 
-void SyncProcessRunner::CloseHandlesAndDeleteLoop() {
+void SyncProcessRunner::CloseHandlesAndDeleteLoop( ) {
   CHECK_LT(lifecycle_, kHandlesClosed);
 
   if (uv_loop_ != nullptr) {
@@ -524,7 +525,7 @@ void SyncProcessRunner::CloseHandlesAndDeleteLoop() {
 }
 
 
-void SyncProcessRunner::CloseStdioPipes() {
+void SyncProcessRunner::CloseStdioPipes( ) {
   CHECK_LT(lifecycle_, kHandlesClosed);
 
   if (stdio_pipes_initialized_) {
@@ -541,7 +542,7 @@ void SyncProcessRunner::CloseStdioPipes() {
 }
 
 
-void SyncProcessRunner::CloseKillTimer() {
+void SyncProcessRunner::CloseKillTimer( ) {
   CHECK_LT(lifecycle_, kHandlesClosed);
 
   if (kill_timer_initialized_) {
@@ -557,7 +558,7 @@ void SyncProcessRunner::CloseKillTimer() {
 }
 
 
-void SyncProcessRunner::Kill() {
+void SyncProcessRunner::Kill( ) {
   // Only attempt to kill once.
   if (killed_)
     return;
@@ -609,13 +610,13 @@ void SyncProcessRunner::OnExit(int64_t exit_status, int term_signal) {
 }
 
 
-void SyncProcessRunner::OnKillTimerTimeout() {
+void SyncProcessRunner::OnKillTimerTimeout( ) {
   SetError(UV_ETIMEDOUT);
   Kill();
 }
 
 
-int SyncProcessRunner::GetError() {
+int SyncProcessRunner::GetError( ) {
   if (error_ != 0)
     return error_;
   else
@@ -635,7 +636,7 @@ void SyncProcessRunner::SetPipeError(int pipe_error) {
 }
 
 
-Local<Object> SyncProcessRunner::BuildResultObject() {
+Local<Object> SyncProcessRunner::BuildResultObject( ) {
   EscapableHandleScope scope(env()->isolate());
 
   Local<Object> js_result = Object::New(env()->isolate());
@@ -670,7 +671,7 @@ Local<Object> SyncProcessRunner::BuildResultObject() {
 }
 
 
-Local<Array> SyncProcessRunner::BuildOutputArray() {
+Local<Array> SyncProcessRunner::BuildOutputArray( ) {
   CHECK_GE(lifecycle_, kInitialized);
   CHECK_NE(stdio_pipes_, nullptr);
 

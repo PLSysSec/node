@@ -32,17 +32,17 @@ Watchdog::Watchdog(v8::Isolate* isolate, uint64_t ms) : isolate_(isolate),
 }
 
 
-Watchdog::~Watchdog() {
+Watchdog::~Watchdog( ) {
   Destroy();
 }
 
 
-void Watchdog::Dispose() {
+void Watchdog::Dispose( ) {
   Destroy();
 }
 
 
-void Watchdog::Destroy() {
+void Watchdog::Destroy( ) {
   if (destroyed_) {
     return;
   }
@@ -91,12 +91,12 @@ void Watchdog::Timer(uv_timer_t* timer) {
 }
 
 
-SigintWatchdog::~SigintWatchdog() {
+SigintWatchdog::~SigintWatchdog( ) {
   Destroy();
 }
 
 
-void SigintWatchdog::Dispose() {
+void SigintWatchdog::Dispose( ) {
   Destroy();
 }
 
@@ -110,7 +110,7 @@ SigintWatchdog::SigintWatchdog(v8::Isolate* isolate)
 }
 
 
-void SigintWatchdog::Destroy() {
+void SigintWatchdog::Destroy( ) {
   if (destroyed_) {
     return;
   }
@@ -122,7 +122,7 @@ void SigintWatchdog::Destroy() {
 }
 
 
-void SigintWatchdog::HandleSigint() {
+void SigintWatchdog::HandleSigint( ) {
   received_signal_ = true;
   isolate_->TerminateExecution();
 }
@@ -162,7 +162,7 @@ BOOL WINAPI SigintWatchdogHelper::WinCtrlCHandlerRoutine(DWORD dwCtrlType) {
 #endif
 
 
-bool SigintWatchdogHelper::InformWatchdogsAboutSignal() {
+bool SigintWatchdogHelper::InformWatchdogsAboutSignal( ) {
   Mutex::ScopedLock list_lock(instance.list_mutex_);
 
   bool is_stopping = false;
@@ -183,7 +183,7 @@ bool SigintWatchdogHelper::InformWatchdogsAboutSignal() {
 }
 
 
-int SigintWatchdogHelper::Start() {
+int SigintWatchdogHelper::Start( ) {
   Mutex::ScopedLock lock(mutex_);
 
   if (start_stop_count_++ > 0) {
@@ -214,7 +214,7 @@ int SigintWatchdogHelper::Start() {
 }
 
 
-bool SigintWatchdogHelper::Stop() {
+bool SigintWatchdogHelper::Stop( ) {
   bool had_pending_signal;
   Mutex::ScopedLock lock(mutex_);
 
@@ -261,7 +261,7 @@ bool SigintWatchdogHelper::Stop() {
 }
 
 
-bool SigintWatchdogHelper::HasPendingSignal() {
+bool SigintWatchdogHelper::HasPendingSignal( ) {
   Mutex::ScopedLock lock(list_mutex_);
 
   return has_pending_signal_;
@@ -285,7 +285,8 @@ void SigintWatchdogHelper::Unregister(SigintWatchdog* wd) {
 }
 
 
-SigintWatchdogHelper::SigintWatchdogHelper()
+SigintWatchdogHelper::SigintWatchdogHelper(
+    )
     : start_stop_count_(0),
       has_pending_signal_(false) {
 #ifdef __POSIX__
@@ -296,7 +297,7 @@ SigintWatchdogHelper::SigintWatchdogHelper()
 }
 
 
-SigintWatchdogHelper::~SigintWatchdogHelper() {
+SigintWatchdogHelper::~SigintWatchdogHelper( ) {
   start_stop_count_ = 0;
   Stop();
 

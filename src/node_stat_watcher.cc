@@ -50,7 +50,7 @@ StatWatcher::StatWatcher(Environment* env, Local<Object> wrap)
 }
 
 
-StatWatcher::~StatWatcher() {
+StatWatcher::~StatWatcher( ) {
   Stop();
   uv_close(reinterpret_cast<uv_handle_t*>(watcher_), Delete);
 }
@@ -107,7 +107,7 @@ void StatWatcher::Stop(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-void StatWatcher::Stop() {
+void StatWatcher::Stop( ) {
   if (!uv_is_active(reinterpret_cast<uv_handle_t*>(watcher_)))
     return;
   uv_fs_poll_stop(watcher_);

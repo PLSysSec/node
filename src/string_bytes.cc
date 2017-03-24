@@ -28,20 +28,20 @@ using v8::Value;
 template <typename ResourceType, typename TypeName>
 class ExternString: public ResourceType {
  public:
-  ~ExternString() override {
+  ~ExternString( ) override {
     free(const_cast<TypeName*>(data_));
     isolate()->AdjustAmountOfExternalAllocatedMemory(-byte_length());
   }
 
-  const TypeName* data() const override {
+  const TypeName* data( ) const override {
     return data_;
   }
 
-  size_t length() const override {
+  size_t length( ) const override {
     return length_;
   }
 
-  int64_t byte_length() const {
+  int64_t byte_length( ) const {
     return length() * sizeof(*data());
   }
 
@@ -87,7 +87,7 @@ class ExternString: public ResourceType {
     return scope.Escape(str.ToLocalChecked());
   }
 
-  inline Isolate* isolate() const { return isolate_; }
+  inline Isolate* isolate( ) const { return isolate_; }
 
  private:
   ExternString(Isolate* isolate, const TypeName* data, size_t length)

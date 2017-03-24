@@ -8,7 +8,7 @@
 #include "util.h"
 #include "util-inl.h"
 #include "v8-debug.h"
-
+#include "safe_v8.h"
 namespace node {
 
 using v8::Array;
@@ -66,27 +66,27 @@ class ContextifyContext {
   }
 
 
-  ~ContextifyContext() {
+  ~ContextifyContext( ) {
     context_.Reset();
   }
 
 
-  inline Environment* env() const {
+  inline Environment* env( ) const {
     return env_;
   }
 
 
-  inline Local<Context> context() const {
+  inline Local<Context> context( ) const {
     return PersistentToLocal(env()->isolate(), context_);
   }
 
 
-  inline Local<Object> global_proxy() const {
+  inline Local<Object> global_proxy( ) const {
     return context()->Global();
   }
 
 
-  inline Local<Object> sandbox() const {
+  inline Local<Object> sandbox( ) const {
     return Local<Object>::Cast(context()->GetEmbedderData(kSandboxObjectIndex));
   }
 
@@ -111,7 +111,7 @@ class ContextifyContext {
   // weren't supported by Node's VM module until 0.12 anyway.  But, this
   // should be fixed properly in V8, and this copy function should be
   // removed once there is a better way.
-  void CopyProperties() {
+  void CopyProperties( ) {
     HandleScope scope(env()->isolate());
 
     Local<Context> context = PersistentToLocal(env()->isolate(), context_);
@@ -236,9 +236,12 @@ class ContextifyContext {
 
 
   static void RunInDebugContext(const FunctionCallbackInfo<Value>& args) {
-    Local<String> script_source(args[0]->ToString(args.GetIsolate()));
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+    safeV8::ToString(isolate, args[0])
+  .OnVal([&](Local<String> args0_str)-> safeV8::SafeV8Promise_Base {
+Local<String> script_source(args0_str);
     if (script_source.IsEmpty())
-      return;  // Exception pending.
+      return safeV8::Done;  // Exception pending.
     Local<Context> debug_context = Debug::GetDebugContext(args.GetIsolate());
     Environment* env = Environment::GetCurrent(args);
     if (debug_context.IsEmpty()) {
@@ -259,13 +262,20 @@ class ContextifyContext {
     Context::Scope context_scope(debug_context);
     MaybeLocal<Script> script = Script::Compile(debug_context, script_source);
     if (script.IsEmpty())
-      return;  // Exception pending.
+      return safeV8::Done;  // Exception pending.
     args.GetReturnValue().Set(script.ToLocalChecked()->Run());
-  }
+  
+  return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
 
   static void MakeContext(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     if (!args[0]->IsObject()) {
       return env->ThrowTypeError("sandbox argument must be an object.");
@@ -273,10 +283,9 @@ class ContextifyContext {
     Local<Object> sandbox = args[0].As<Object>();
 
     // Don't allow contextifying a sandbox multiple times.
-    CHECK(
-        !sandbox->HasPrivate(
-            env->context(),
-            env->contextify_context_private_symbol()).FromJust());
+    if(!(!sandbox->HasPrivate(env->context(),env->contextify_context_private_symbol()).FromJust())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(!sandbox->HasPrivate(env->context(),env->contextify_context_private_symbol()).FromJust());");
+  }
 
     TryCatch try_catch(env->isolate());
     ContextifyContext* context = new ContextifyContext(env, sandbox);
@@ -297,7 +306,8 @@ class ContextifyContext {
 
 
   static void IsContext(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     if (!args[0]->IsObject()) {
       env->ThrowTypeError("sandbox must be an object");
@@ -470,7 +480,8 @@ class ContextifyScript : public BaseObject {
 
   // args: code, [options]
   static void New(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     if (!args.IsConstructCall()) {
       return env->ThrowError("Must call vm.Script as a constructor.");
@@ -480,7 +491,9 @@ class ContextifyScript : public BaseObject {
         new ContextifyScript(env, args.This());
 
     TryCatch try_catch(env->isolate());
-    Local<String> code = args[0]->ToString(env->isolate());
+      safeV8::ToString(isolate, args[0])
+  .OnVal([&](Local<String> args0_str)-> safeV8::SafeV8Promise_Base {
+Local<String> code = args0_str;
 
     Local<Value> options = args[1];
     Local<String> filename = GetFilenameArg(env, options);
@@ -491,7 +504,7 @@ class ContextifyScript : public BaseObject {
     bool produce_cached_data = GetProduceCachedData(env, options);
     if (try_catch.HasCaught()) {
       try_catch.ReThrow();
-      return;
+      return safeV8::Done;
     }
 
     ScriptCompiler::CachedData* cached_data = nullptr;
@@ -523,16 +536,24 @@ class ContextifyScript : public BaseObject {
         DecorateErrorStack(env, try_catch);
       }
       try_catch.ReThrow();
-      return;
+      return safeV8::Done;
     }
     contextify_script->script_.Reset(env->isolate(),
                                      v8_script.ToLocalChecked());
 
     if (compile_options == ScriptCompiler::kConsumeCodeCache) {
-      args.This()->Set(
-          env->cached_data_rejected_string(),
-          Boolean::New(env->isolate(), source.GetCachedData()->rejected));
-    } else if (compile_options == ScriptCompiler::kProduceCodeCache) {
+        {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, args.This(),env->cached_data_rejected_string(),Boolean::New(env->isolate(),source.GetCachedData()->rejected))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+    return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+}
+} else if (compile_options == ScriptCompiler::kProduceCodeCache) {
       const ScriptCompiler::CachedData* cached_data = source.GetCachedData();
       bool cached_data_produced = cached_data != nullptr;
       if (cached_data_produced) {
@@ -540,13 +561,37 @@ class ContextifyScript : public BaseObject {
             env,
             reinterpret_cast<const char*>(cached_data->data),
             cached_data->length);
-        args.This()->Set(env->cached_data_string(), buf.ToLocalChecked());
-      }
-      args.This()->Set(
-          env->cached_data_produced_string(),
-          Boolean::New(env->isolate(), cached_data_produced));
-    }
-  }
+          {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::Set(isolate, args.This(),env->cached_data_string(),buf.ToLocalChecked())
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+    return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+}
+}
+        {
+    bool safeV8_Failed3 = false;
+    Local<Value> safeV8_exceptionThrown3;
+safeV8::Set(isolate, args.This(),env->cached_data_produced_string(),Boolean::New(env->isolate(),cached_data_produced))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+    return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
+    if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+}
+}
+  
+  return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
 
   static bool InstanceOf(Environment* env, const Local<Value>& value) {
@@ -576,7 +621,8 @@ class ContextifyScript : public BaseObject {
 
   // args: sandbox, [options]
   static void RunInContext(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
 
     int64_t timeout;
     bool display_errors;
@@ -887,7 +933,7 @@ class ContextifyScript : public BaseObject {
   }
 
 
-  ~ContextifyScript() override {
+  ~ContextifyScript( ) override {
     script_.Reset();
   }
 };

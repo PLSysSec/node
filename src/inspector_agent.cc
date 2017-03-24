@@ -10,7 +10,7 @@
 #include "v8-platform.h"
 #include "util.h"
 #include "zlib.h"
-
+#include "safe_v8.h"
 #include "platform/v8_inspector/public/InspectorVersion.h"
 #include "platform/v8_inspector/public/V8Inspector.h"
 #include "platform/v8_inspector/public/V8InspectorClient.h"
@@ -101,7 +101,7 @@ void SendVersionResponse(InspectorSocket* socket) {
   SendHttpResponse(socket, MapToString(response));
 }
 
-std::string GetProcessTitle() {
+std::string GetProcessTitle( ) {
   // uv_get_process_title will trim the title if it is too long.
   char title[2048];
   int err = uv_get_process_title(title, sizeof(title));
@@ -144,7 +144,7 @@ const char* match_path_segment(const char* path, const char* expected) {
 
 // UUID RFC: https://www.ietf.org/rfc/rfc4122.txt
 // Used ver 4 - with numbers
-std::string GenerateID() {
+std::string GenerateID( ) {
   uint16_t buffer[8];
   CHECK(crypto::EntropySource(reinterpret_cast<unsigned char*>(buffer),
                               sizeof(buffer)));
@@ -184,7 +184,7 @@ class AgentImpl {
   void Stop();
 
   bool IsStarted();
-  bool IsConnected() {  return state_ == State::kConnected; }
+  bool IsConnected( ) {  return state_ == State::kConnected; }
   void WaitForDisconnect();
 
   void FatalException(v8::Local<v8::Value> error,
@@ -269,7 +269,7 @@ class DispatchOnInspectorBackendTask : public v8::Task {
  public:
   explicit DispatchOnInspectorBackendTask(AgentImpl* agent) : agent_(agent) {}
 
-  void Run() override {
+  void Run( ) override {
     agent_->DispatchMessages();
   }
 
@@ -280,7 +280,7 @@ class DispatchOnInspectorBackendTask : public v8::Task {
 class ChannelImpl final : public blink::protocol::FrontendChannel {
  public:
   explicit ChannelImpl(AgentImpl* agent): agent_(agent) {}
-  virtual ~ChannelImpl() {}
+  virtual ~ChannelImpl( ) {}
  private:
   void sendProtocolResponse(int callId, const String16& message) override {
     sendMessageToFrontend(message);
@@ -290,7 +290,7 @@ class ChannelImpl final : public blink::protocol::FrontendChannel {
     sendMessageToFrontend(message);
   }
 
-  void flushProtocolNotifications() override { }
+  void flushProtocolNotifications( ) override { }
 
   void sendMessageToFrontend(const String16& message) {
     agent_->Write(agent_->frontend_session_id_, message);
@@ -332,19 +332,19 @@ class V8NodeInspector : public v8_inspector::V8InspectorClient {
     running_nested_loop_ = false;
   }
 
-  double currentTimeMS() override {
+  double currentTimeMS( ) override {
     return uv_hrtime() * 1.0 / NANOS_PER_MSEC;
   }
 
-  void quitMessageLoopOnPause() override {
+  void quitMessageLoopOnPause( ) override {
     terminated_ = true;
   }
 
-  void connectFrontend() {
+  void connectFrontend( ) {
     session_ = inspector_->connect(1, new ChannelImpl(agent_), nullptr);
   }
 
-  void disconnectFrontend() {
+  void disconnectFrontend( ) {
     session_.reset();
   }
 
@@ -358,7 +358,7 @@ class V8NodeInspector : public v8_inspector::V8InspectorClient {
     return env_->context();
   }
 
-  V8Inspector* inspector() {
+  V8Inspector* inspector( ) {
     return inspector_.get();
   }
 
@@ -391,7 +391,7 @@ AgentImpl::AgentImpl(Environment* env) : port_(0),
   uv_unref(reinterpret_cast<uv_handle_t*>(data_written_));
 }
 
-AgentImpl::~AgentImpl() {
+AgentImpl::~AgentImpl( ) {
   auto close_cb = [](uv_handle_t* handle) {
     delete reinterpret_cast<uv_async_t*>(handle);
   };
@@ -403,19 +403,54 @@ void InspectorConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::Isolate* isolate = info.GetIsolate();
   v8::Local<v8::Context> context = isolate->GetCurrentContext();
 
-  CHECK(info.Data()->IsArray());
+  
+  safeV8::With(isolate, info.Data())
+  .OnVal([&](Local<Array> infoData) -> safeV8::SafeV8Promise_Base {
   v8::Local<v8::Array> args = info.Data().As<v8::Array>();
-  CHECK_EQ(args->Length(), 3);
+  if(args->Length() != 3) {
+    Environment::GetCurrent(info)->ThrowTypeError("Failed CHECK_EQ(args->Length(),3);");
+    return safeV8::Done;
+  }
 
-  v8::Local<v8::Value> inspector_method =
+    {
+    bool safeV8_Failed7 = false;
+    Local<Value> safeV8_exceptionThrown7;
+safeV8::Get(isolate, args,0)
+  .OnVal([&](Local<Value> args_0)-> safeV8::SafeV8Promise_Base {
+v8::Local<v8::Value> inspector_method =
       args->Get(context, 0).ToLocalChecked();
-  CHECK(inspector_method->IsFunction());
-  v8::Local<v8::Value> node_method =
+  
+  {
+    bool safeV8_Failed6 = false;
+    Local<Value> safeV8_exceptionThrown6;
+safeV8::With(isolate, inspector_method)
+  .OnVal([&](Local<Function> inspector_method) -> safeV8::SafeV8Promise_Base {
+    {
+    bool safeV8_Failed5 = false;
+    Local<Value> safeV8_exceptionThrown5;
+safeV8::Get(isolate, args,1)
+  .OnVal([&](Local<Value> args_1)-> safeV8::SafeV8Promise_Base {
+v8::Local<v8::Value> node_method =
       args->Get(context, 1).ToLocalChecked();
-  CHECK(node_method->IsFunction());
-  v8::Local<v8::Value> config_value =
+  
+  {
+    bool safeV8_Failed4 = false;
+    Local<Value> safeV8_exceptionThrown4;
+safeV8::With(isolate, node_method)
+  .OnVal([&](Local<Function> node_method) -> safeV8::SafeV8Promise_Base {
+    {
+    bool safeV8_Failed3 = false;
+    Local<Value> safeV8_exceptionThrown3;
+safeV8::Get(isolate, args,2)
+  .OnVal([&](Local<Value> args_2)-> safeV8::SafeV8Promise_Base {
+v8::Local<v8::Value> config_value =
       args->Get(context, 2).ToLocalChecked();
-  CHECK(config_value->IsObject());
+  
+  {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::With(isolate, config_value)
+  .OnVal([&](Local<Object> config_value) -> safeV8::SafeV8Promise_Base {
   v8::Local<v8::Object> config_object = config_value.As<v8::Object>();
 
   std::vector<v8::Local<v8::Value>> call_args(info.Length());
@@ -426,27 +461,85 @@ void InspectorConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::Local<v8::String> in_call_key = OneByteString(isolate, "in_call");
   bool in_call = config_object->Has(context, in_call_key).FromMaybe(false);
   if (!in_call) {
-    CHECK(config_object->Set(context,
-                             in_call_key,
-                             v8::True(isolate)).FromJust());
+      {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, config_object,in_call_key,v8::True(isolate))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
     CHECK(!inspector_method.As<v8::Function>()->Call(
         context,
         info.Holder(),
         call_args.size(),
         call_args.data()).IsEmpty());
-  }
+  
+  return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+}
+}
 
   v8::TryCatch try_catch(info.GetIsolate());
   static_cast<void>(node_method.As<v8::Function>()->Call(context,
                                                          info.Holder(),
                                                          call_args.size(),
                                                          call_args.data()));
-  CHECK(config_object->Delete(context, in_call_key).FromJust());
+  if(!(config_object->Delete(context,in_call_key).FromJust())) {
+    Environment::GetCurrent(info)->ThrowTypeError("Failed CHECK(config_object->Delete(context,in_call_key).FromJust());");
+    return safeV8::Done;
+  }
   if (try_catch.HasCaught())
     try_catch.ReThrow();
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
+    if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed4 = true; safeV8_exceptionThrown4 = exception; });
+    if(safeV8_Failed4) return safeV8::Err(safeV8_exceptionThrown4);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed5 = true; safeV8_exceptionThrown5 = exception; });
+    if(safeV8_Failed5) return safeV8::Err(safeV8_exceptionThrown5);
+
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed6 = true; safeV8_exceptionThrown6 = exception; });
+    if(safeV8_Failed6) return safeV8::Err(safeV8_exceptionThrown6);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed7 = true; safeV8_exceptionThrown7 = exception; });
+    if(safeV8_Failed7) return safeV8::Err(safeV8_exceptionThrown7);
+
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 void InspectorWrapConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (args.Length() != 3 || !args[0]->IsFunction() ||
@@ -455,12 +548,44 @@ void InspectorWrapConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& args) {
   }
 
   v8::Local<v8::Array> array = v8::Array::New(env->isolate(), args.Length());
-  CHECK(array->Set(env->context(), 0, args[0]).FromJust());
-  CHECK(array->Set(env->context(), 1, args[1]).FromJust());
-  CHECK(array->Set(env->context(), 2, args[2]).FromJust());
+    safeV8::Set(isolate, array,0,args[0])
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::Set(isolate, array,1,args[1])
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, array,2,args[2])
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
   args.GetReturnValue().Set(v8::Function::New(env->context(),
                                               InspectorConsoleCall,
                                               array).ToLocalChecked());
+
+  return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+  
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 bool AgentImpl::Start(v8::Platform* platform, const char* path,
@@ -494,17 +619,17 @@ bool AgentImpl::Start(v8::Platform* platform, const char* path,
   return true;
 }
 
-void AgentImpl::Stop() {
+void AgentImpl::Stop( ) {
   int err = uv_thread_join(&thread_);
   CHECK_EQ(err, 0);
   delete inspector_;
 }
 
-bool AgentImpl::IsStarted() {
+bool AgentImpl::IsStarted( ) {
   return !!platform_;
 }
 
-void AgentImpl::WaitForDisconnect() {
+void AgentImpl::WaitForDisconnect( ) {
   shutting_down_ = true;
   fprintf(stderr, "Waiting for the debugger to disconnect...\n");
   fflush(stderr);
@@ -519,7 +644,7 @@ void AgentImpl::WaitForDisconnect() {
                            v8::ReadOnly).FromJust();                          \
   } while (0)
 
-void AgentImpl::InstallInspectorOnProcess() {
+void AgentImpl::InstallInspectorOnProcess( ) {
   auto env = parent_env_;
   v8::Local<v8::Object> process = env->process_object();
   v8::Local<v8::Object> inspector = v8::Object::New(env->isolate());
@@ -700,7 +825,7 @@ void AgentImpl::WriteCbIO(uv_async_t* async) {
   }
 }
 
-void AgentImpl::WorkerRunIO() {
+void AgentImpl::WorkerRunIO( ) {
   sockaddr_in addr;
   uv_tcp_t server;
   int err = uv_loop_init(&child_loop_);
@@ -769,13 +894,13 @@ void AgentImpl::PostIncomingMessage(const String16& message) {
   NotifyMessageReceived();
 }
 
-void AgentImpl::WaitForFrontendMessage() {
+void AgentImpl::WaitForFrontendMessage( ) {
   Mutex::ScopedLock scoped_lock(state_lock_);
   if (incoming_message_queue_.empty())
     incoming_message_cond_.Wait(scoped_lock);
 }
 
-void AgentImpl::NotifyMessageReceived() {
+void AgentImpl::NotifyMessageReceived( ) {
   Mutex::ScopedLock scoped_lock(state_lock_);
   incoming_message_cond_.Broadcast(scoped_lock);
 }
@@ -791,7 +916,7 @@ void AgentImpl::OnInspectorConnectionIO(InspectorSocket* socket) {
   PostIncomingMessage(String16(TAG_CONNECT, sizeof(TAG_CONNECT) - 1));
 }
 
-void AgentImpl::DispatchMessages() {
+void AgentImpl::DispatchMessages( ) {
   // This function can be reentered if there was an incoming message while
   // V8 was processing another inspector request (e.g. if the user is
   // evaluating a long-running JS code snippet). This can happen only at
@@ -839,7 +964,7 @@ void AgentImpl::Write(int session_id, const String16& message) {
 // Exported class Agent
 Agent::Agent(node::Environment* env) : impl(new AgentImpl(env)) {}
 
-Agent::~Agent() {
+Agent::~Agent( ) {
   delete impl;
 }
 
@@ -848,19 +973,19 @@ bool Agent::Start(v8::Platform* platform, const char* path,
   return impl->Start(platform, path, port, wait);
 }
 
-void Agent::Stop() {
+void Agent::Stop( ) {
   impl->Stop();
 }
 
-bool Agent::IsStarted() {
+bool Agent::IsStarted( ) {
   return impl->IsStarted();
 }
 
-bool Agent::IsConnected() {
+bool Agent::IsConnected( ) {
   return impl->IsConnected();
 }
 
-void Agent::WaitForDisconnect() {
+void Agent::WaitForDisconnect( ) {
   impl->WaitForDisconnect();
 }
 

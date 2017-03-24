@@ -12,6 +12,7 @@
 #include "stream_wrap.h"
 #include "util-inl.h"
 #include "util.h"
+#include "safe_v8.h"
 
 namespace node {
 
@@ -155,15 +156,18 @@ void PipeWrap::Open(const FunctionCallbackInfo<Value>& args) {
 
 
 void PipeWrap::Connect(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   PipeWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
-  CHECK(args[0]->IsObject());
-  CHECK(args[1]->IsString());
+  
+  
 
-  Local<Object> req_wrap_obj = args[0].As<Object>();
+  safeV8::With(isolate, args[0], args[1])
+  .OnVal([&](Local<Object> args0, Local<String> args1) -> safeV8::SafeV8Promise_Base {
+  Local<Object> req_wrap_obj = args0;
   node::Utf8Value name(env->isolate(), args[1]);
 
   ConnectWrap* req_wrap =
@@ -175,6 +179,11 @@ void PipeWrap::Connect(const FunctionCallbackInfo<Value>& args) {
   req_wrap->Dispatched();
 
   args.GetReturnValue().Set(0);  // uv_pipe_connect() doesn't return errors.
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 

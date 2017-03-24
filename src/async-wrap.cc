@@ -4,7 +4,7 @@
 #include "env-inl.h"
 #include "util.h"
 #include "util-inl.h"
-
+#include "safe_v8.h"
 #include "v8.h"
 #include "v8-profiler.h"
 
@@ -38,11 +38,11 @@ class RetainedAsyncInfo: public RetainedObjectInfo {
  public:
   explicit RetainedAsyncInfo(uint16_t class_id, AsyncWrap* wrap);
 
-  void Dispose() override;
+  void Dispose( ) override;
   bool IsEquivalent(RetainedObjectInfo* other) override;
-  intptr_t GetHash() override;
-  const char* GetLabel() override;
-  intptr_t GetSizeInBytes() override;
+  intptr_t GetHash( ) override;
+  const char* GetLabel( ) override;
+  intptr_t GetSizeInBytes( ) override;
 
  private:
   const char* label_;
@@ -58,7 +58,7 @@ RetainedAsyncInfo::RetainedAsyncInfo(uint16_t class_id, AsyncWrap* wrap)
 }
 
 
-void RetainedAsyncInfo::Dispose() {
+void RetainedAsyncInfo::Dispose( ) {
   delete this;
 }
 
@@ -69,17 +69,17 @@ bool RetainedAsyncInfo::IsEquivalent(RetainedObjectInfo* other) {
 }
 
 
-intptr_t RetainedAsyncInfo::GetHash() {
+intptr_t RetainedAsyncInfo::GetHash( ) {
   return reinterpret_cast<intptr_t>(wrap_);
 }
 
 
-const char* RetainedAsyncInfo::GetLabel() {
+const char* RetainedAsyncInfo::GetLabel( ) {
   return label_;
 }
 
 
-intptr_t RetainedAsyncInfo::GetSizeInBytes() {
+intptr_t RetainedAsyncInfo::GetSizeInBytes( ) {
   return length_;
 }
 
@@ -104,6 +104,7 @@ RetainedObjectInfo* WrapperInfo(uint16_t class_id, Local<Value> wrapper) {
 
 
 static void EnableHooksJS(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
   Local<Function> init_fn = env->async_hooks_init_function();
   if (init_fn.IsEmpty() || !init_fn->IsFunction())
@@ -119,6 +120,7 @@ static void DisableHooksJS(const FunctionCallbackInfo<Value>& args) {
 
 
 static void SetupHooks(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (env->async_hooks()->callbacks_enabled())
@@ -128,21 +130,42 @@ static void SetupHooks(const FunctionCallbackInfo<Value>& args) {
 
   Local<Object> fn_obj = args[0].As<Object>();
 
-  Local<Value> init_v = fn_obj->Get(
+    safeV8::Get(isolate, fn_obj,FIXED_ONE_BYTE_STRING(env->isolate(),"init"))
+  .OnVal([&](Local<Value> fn_obj_FIXED_ONE_BYTE_STRINGenvisolateinit)-> safeV8::SafeV8Promise_Base {
+Local<Value> init_v = fn_obj->Get(
       env->context(),
       FIXED_ONE_BYTE_STRING(env->isolate(), "init")).ToLocalChecked();
-  Local<Value> pre_v = fn_obj->Get(
+    {
+    bool safeV8_Failed3 = false;
+    Local<Value> safeV8_exceptionThrown3;
+safeV8::Get(isolate, fn_obj,FIXED_ONE_BYTE_STRING(env->isolate(),"pre"))
+  .OnVal([&](Local<Value> fn_obj_FIXED_ONE_BYTE_STRINGenvisolatepre)-> safeV8::SafeV8Promise_Base {
+Local<Value> pre_v = fn_obj->Get(
       env->context(),
       FIXED_ONE_BYTE_STRING(env->isolate(), "pre")).ToLocalChecked();
-  Local<Value> post_v = fn_obj->Get(
+    {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::Get(isolate, fn_obj,FIXED_ONE_BYTE_STRING(env->isolate(),"post"))
+  .OnVal([&](Local<Value> fn_obj_FIXED_ONE_BYTE_STRINGenvisolatepost)-> safeV8::SafeV8Promise_Base {
+Local<Value> post_v = fn_obj->Get(
       env->context(),
       FIXED_ONE_BYTE_STRING(env->isolate(), "post")).ToLocalChecked();
-  Local<Value> destroy_v = fn_obj->Get(
+    {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Get(isolate, fn_obj,FIXED_ONE_BYTE_STRING(env->isolate(),"destroy"))
+  .OnVal([&](Local<Value> fn_obj_FIXED_ONE_BYTE_STRINGenvisolatedestroy)-> safeV8::SafeV8Promise_Base {
+Local<Value> destroy_v = fn_obj->Get(
       env->context(),
       FIXED_ONE_BYTE_STRING(env->isolate(), "destroy")).ToLocalChecked();
 
   if (!init_v->IsFunction())
-    return env->ThrowTypeError("init callback must be a function");
+        {
+env->ThrowTypeError("init callback must be a function");
+    return safeV8::Done;
+    }
+
 
   env->set_async_hooks_init_function(init_v.As<Function>());
 
@@ -152,6 +175,33 @@ static void SetupHooks(const FunctionCallbackInfo<Value>& args) {
     env->set_async_hooks_post_function(post_v.As<Function>());
   if (destroy_v->IsFunction())
     env->set_async_hooks_destroy_function(destroy_v.As<Function>());
+
+  return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
+    if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+  
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 

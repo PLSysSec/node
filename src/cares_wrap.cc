@@ -11,7 +11,7 @@
 #include "util.h"
 #include "util-inl.h"
 #include "uv.h"
-
+#include "safe_v8.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -83,7 +83,7 @@ class GetAddrInfoReqWrap : public ReqWrap<uv_getaddrinfo_t> {
  public:
   GetAddrInfoReqWrap(Environment* env, Local<Object> req_wrap_obj);
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 };
 
 GetAddrInfoReqWrap::GetAddrInfoReqWrap(Environment* env,
@@ -102,7 +102,7 @@ class GetNameInfoReqWrap : public ReqWrap<uv_getnameinfo_t> {
  public:
   GetNameInfoReqWrap(Environment* env, Local<Object> req_wrap_obj);
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 };
 
 GetNameInfoReqWrap::GetNameInfoReqWrap(Environment* env,
@@ -288,7 +288,7 @@ class QueryWrap : public AsyncWrap {
       req_wrap_obj->Set(env->domain_string(), env->domain_array()->Get(0));
   }
 
-  ~QueryWrap() override {
+  ~QueryWrap( ) override {
     CHECK_EQ(false, persistent().IsEmpty());
     ClearWrap(object());
     persistent().Reset();
@@ -306,7 +306,7 @@ class QueryWrap : public AsyncWrap {
   }
 
  protected:
-  void* GetQueryArg() {
+  void* GetQueryArg( ) {
     return static_cast<void*>(this);
   }
 
@@ -393,7 +393,7 @@ class QueryAWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -432,7 +432,7 @@ class QueryAaaaWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -471,7 +471,7 @@ class QueryCnameWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -512,7 +512,7 @@ class QueryMxWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -563,7 +563,7 @@ class QueryNsWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -601,7 +601,7 @@ class QueryTxtWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -658,7 +658,7 @@ class QuerySrvWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -714,7 +714,7 @@ class QueryPtrWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -757,7 +757,7 @@ class QueryNaptrWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -821,7 +821,7 @@ class QuerySoaWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(unsigned char* buf, int len) override {
@@ -889,7 +889,7 @@ class GetHostByAddrWrap: public QueryWrap {
     return 0;
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  protected:
   void Parse(struct hostent* host) override {
@@ -929,14 +929,19 @@ class GetHostByNameWrap: public QueryWrap {
 
 template <class Wrap>
 static void Query(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK_EQ(false, args.IsConstructCall());
-  CHECK(args[0]->IsObject());
-  CHECK(args[1]->IsString());
+  if(false != args.IsConstructCall()) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(false,args.IsConstructCall());");
+  }
+  
+  
 
-  Local<Object> req_wrap_obj = args[0].As<Object>();
-  Local<String> string = args[1].As<String>();
+  safeV8::With(isolate, args[0], args[1])
+  .OnVal([&](Local<Object> args0, Local<String> args1) -> safeV8::SafeV8Promise_Base {
+  Local<Object> req_wrap_obj = args0;
+  Local<String> string = args1;
   Wrap* wrap = new Wrap(env, req_wrap_obj);
 
   node::Utf8Value name(env->isolate(), string);
@@ -945,6 +950,11 @@ static void Query(const FunctionCallbackInfo<Value>& args) {
     delete wrap;
 
   args.GetReturnValue().Set(err);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -1110,12 +1120,15 @@ static void IsIPv6(const FunctionCallbackInfo<Value>& args) {
 }
 
 static void GetAddrInfo(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK(args[0]->IsObject());
-  CHECK(args[1]->IsString());
-  CHECK(args[2]->IsInt32());
-  Local<Object> req_wrap_obj = args[0].As<Object>();
+  
+  
+  
+  safeV8::With(isolate, args[0], args[1], args[2])
+  .OnVal([&](Local<Object> args0, Local<String> args1, Local<Int32> args2) -> safeV8::SafeV8Promise_Base {
+  Local<Object> req_wrap_obj = args0;
   node::Utf8Value hostname(env->isolate(), args[1]);
 
   int32_t flags = (args[3]->IsInt32()) ? args[3]->Int32Value() : 0;
@@ -1154,22 +1167,32 @@ static void GetAddrInfo(const FunctionCallbackInfo<Value>& args) {
     delete req_wrap;
 
   args.GetReturnValue().Set(err);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 static void GetNameInfo(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK(args[0]->IsObject());
-  CHECK(args[1]->IsString());
-  CHECK(args[2]->IsUint32());
-  Local<Object> req_wrap_obj = args[0].As<Object>();
+  
+  
+  
+  safeV8::With(isolate, args[0], args[1], args[2])
+  .OnVal([&](Local<Object> args0, Local<String> args1, Local<Uint32> args2) -> safeV8::SafeV8Promise_Base {
+  Local<Object> req_wrap_obj = args0;
   node::Utf8Value ip(env->isolate(), args[1]);
   const unsigned port = args[2]->Uint32Value();
   struct sockaddr_storage addr;
 
-  CHECK(uv_ip4_addr(*ip, port, reinterpret_cast<sockaddr_in*>(&addr)) == 0 ||
-        uv_ip6_addr(*ip, port, reinterpret_cast<sockaddr_in6*>(&addr)) == 0);
+  if(!(uv_ip4_addr(*ip,port,reinterpret_cast<sockaddr_in*>(&addr))==0||uv_ip6_addr(*ip,port,reinterpret_cast<sockaddr_in6*>(&addr))==0)) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(uv_ip4_addr(*ip,port,reinterpret_cast<sockaddr_in*>(&addr))==0||uv_ip6_addr(*ip,port,reinterpret_cast<sockaddr_in6*>(&addr))==0);");
+    return safeV8::Done;
+  }
 
   GetNameInfoReqWrap* req_wrap = new GetNameInfoReqWrap(env, req_wrap_obj);
 
@@ -1183,10 +1206,16 @@ static void GetNameInfo(const FunctionCallbackInfo<Value>& args) {
     delete req_wrap;
 
   args.GetReturnValue().Set(err);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 static void GetServers(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   Local<Array> server_array = Array::New(env->isolate());
@@ -1194,7 +1223,9 @@ static void GetServers(const FunctionCallbackInfo<Value>& args) {
   ares_addr_node* servers;
 
   int r = ares_get_servers(env->cares_channel(), &servers);
-  CHECK_EQ(r, ARES_SUCCESS);
+  if(r != ARES_SUCCESS) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(r,ARES_SUCCESS);");
+  }
 
   ares_addr_node* cur = servers;
 
@@ -1206,8 +1237,14 @@ static void GetServers(const FunctionCallbackInfo<Value>& args) {
     CHECK_EQ(err, 0);
 
     Local<String> addr = OneByteString(env->isolate(), ip);
-    server_array->Set(i, addr);
-  }
+      safeV8::Set(isolate, server_array,i,addr)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+    return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   ares_free_data(servers);
 
@@ -1216,17 +1253,21 @@ static void GetServers(const FunctionCallbackInfo<Value>& args) {
 
 
 static void SetServers(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK(args[0]->IsArray());
+  
 
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Array> args0) -> safeV8::SafeV8Promise_Base {
   Local<Array> arr = Local<Array>::Cast(args[0]);
 
   uint32_t len = arr->Length();
 
   if (len == 0) {
     int rv = ares_set_servers(env->cares_channel(), nullptr);
-    return args.GetReturnValue().Set(rv);
+    args.GetReturnValue().Set(rv);
+    return safeV8::Done;
   }
 
   ares_addr_node* servers = new ares_addr_node[len];
@@ -1235,15 +1276,41 @@ static void SetServers(const FunctionCallbackInfo<Value>& args) {
   int err;
 
   for (uint32_t i = 0; i < len; i++) {
-    CHECK(arr->Get(i)->IsArray());
+    
 
-    Local<Array> elm = Local<Array>::Cast(arr->Get(i));
+      int lambdaControlFlow0 = 0;
+    {
+    bool safeV8_Failed5 = false;
+    Local<Value> safeV8_exceptionThrown5;
+safeV8::Get(isolate, arr,i)
+  .OnVal([&](Local<Value> arr_i)-> safeV8::SafeV8Promise_Base {
+{
+    bool safeV8_Failed4 = false;
+    Local<Value> safeV8_exceptionThrown4;
+safeV8::With(isolate, arr_i)
+  .OnVal([&](Local<Array> arrGeti) -> safeV8::SafeV8Promise_Base {
+  Local<Array> elm = Local<Array>::Cast(arr_i);
 
-    CHECK(elm->Get(0)->Int32Value());
-    CHECK(elm->Get(1)->IsString());
+      {
+    bool safeV8_Failed3 = false;
+    Local<Value> safeV8_exceptionThrown3;
+safeV8::Get(isolate, elm,0)
+  .OnVal([&](Local<Value> elm_0)-> safeV8::SafeV8Promise_Base {
+CHECK(elm_0->Int32Value());
+    
 
-    int fam = elm->Get(0)->Int32Value();
-    node::Utf8Value ip(env->isolate(), elm->Get(1));
+      {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::Get(isolate, elm,1)
+  .OnVal([&](Local<Value> elm_1)-> safeV8::SafeV8Promise_Base {
+{
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::With(isolate, elm_1)
+  .OnVal([&](Local<String> elmGet1) -> safeV8::SafeV8Promise_Base {
+  int fam = elm_0->Int32Value();
+    node::Utf8Value ip(env->isolate(), elm_1);
 
     ares_addr_node* cur = &servers[i];
 
@@ -1251,17 +1318,17 @@ static void SetServers(const FunctionCallbackInfo<Value>& args) {
       case 4:
         cur->family = AF_INET;
         err = uv_inet_pton(AF_INET, *ip, &cur->addr);
-        break;
+        lambdaControlFlow0 = 2;return safeV8::Done;
       case 6:
         cur->family = AF_INET6;
         err = uv_inet_pton(AF_INET6, *ip, &cur->addr);
-        break;
+        lambdaControlFlow0 = 2;return safeV8::Done;
       default:
         CHECK(0 && "Bad address family.");
     }
 
     if (err)
-      break;
+      lambdaControlFlow0 = 2;return safeV8::Done;
 
     cur->next = nullptr;
 
@@ -1269,7 +1336,46 @@ static void SetServers(const FunctionCallbackInfo<Value>& args) {
       last->next = cur;
 
     last = cur;
-  }
+  return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
+    if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed4 = true; safeV8_exceptionThrown4 = exception; });
+    if(safeV8_Failed4) return safeV8::Err(safeV8_exceptionThrown4);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed5 = true; safeV8_exceptionThrown5 = exception; });
+    if(safeV8_Failed5) return safeV8::Err(safeV8_exceptionThrown5);
+
+    
+}
+if(lambdaControlFlow0 == 1) {
+         continue;
+    } else if (lambdaControlFlow0 == 2) {
+        break;
+    }
+}
 
   if (err == 0)
     err = ares_set_servers(env->cares_channel(), &servers[0]);
@@ -1279,6 +1385,11 @@ static void SetServers(const FunctionCallbackInfo<Value>& args) {
   delete[] servers;
 
   args.GetReturnValue().Set(err);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 

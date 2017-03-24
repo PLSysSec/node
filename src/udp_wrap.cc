@@ -33,9 +33,9 @@ using v8::Value;
 class SendWrap : public ReqWrap<uv_udp_send_t> {
  public:
   SendWrap(Environment* env, Local<Object> req_wrap_obj, bool have_callback);
-  inline bool have_callback() const;
+  inline bool have_callback( ) const;
   size_t msg_size;
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
  private:
   const bool have_callback_;
 };
@@ -50,7 +50,7 @@ SendWrap::SendWrap(Environment* env,
 }
 
 
-inline bool SendWrap::have_callback() const {
+inline bool SendWrap::have_callback( ) const {
   return have_callback_;
 }
 
@@ -122,7 +122,10 @@ void UDPWrap::Initialize(Local<Object> target,
 
 
 void UDPWrap::New(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args.IsConstructCall());
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
   Environment* env = Environment::GetCurrent(args);
   if (args.Length() == 0) {
     new UDPWrap(env, args.This(), nullptr);
@@ -427,7 +430,7 @@ Local<Object> UDPWrap::Instantiate(Environment* env, AsyncWrap* parent) {
 }
 
 
-uv_udp_t* UDPWrap::UVHandle() {
+uv_udp_t* UDPWrap::UVHandle( ) {
   return &handle_;
 }
 

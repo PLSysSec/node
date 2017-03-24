@@ -9,7 +9,7 @@
 #include "util-inl.h"
 #include "v8-profiler.h"
 #include "v8.h"
-
+#include "safe_v8.h"
 #include <string.h>
 #include <limits.h>
 
@@ -142,7 +142,7 @@ CallbackInfo::CallbackInfo(Isolate* isolate,
 }
 
 
-CallbackInfo::~CallbackInfo() {
+CallbackInfo::~CallbackInfo( ) {
   persistent_.Reset();
 }
 
@@ -430,15 +430,23 @@ MaybeLocal<Object> New(Environment* env, char* data, size_t length) {
 
 
 void CreateFromString(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args[0]->IsString());
-  CHECK(args[1]->IsString());
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+  
 
+  safeV8::With(isolate, args[0], args[1])
+  .OnVal([&](Local<String> args0, Local<String> args1) -> safeV8::SafeV8Promise_Base {
   enum encoding enc = ParseEncoding(args.GetIsolate(),
-                                    args[1].As<String>(),
+                                    args1,
                                     UTF8);
   Local<Object> buf;
-  if (New(args.GetIsolate(), args[0].As<String>(), enc).ToLocal(&buf))
+  if (New(args.GetIsolate(), args0, enc).ToLocal(&buf))
     args.GetReturnValue().Set(buf);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -538,11 +546,15 @@ void Base64Slice(const FunctionCallbackInfo<Value>& args) {
 
 // bytesCopied = buffer.copy(target[, targetStart][, sourceStart][, sourceEnd]);
 void Copy(const FunctionCallbackInfo<Value> &args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
   Environment* env = Environment::GetCurrent(args);
 
   THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
-  Local<Object> target_obj = args[0].As<Object>();
+  Local<Object> target_obj = args0;
   SPREAD_ARG(args.This(), ts_obj);
   SPREAD_ARG(target_obj, target);
 
@@ -556,10 +568,18 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
 
   // Copy 0 bytes; we're done
   if (target_start >= target_length || source_start >= source_end)
-    return args.GetReturnValue().Set(0);
+        {
+args.GetReturnValue().Set(0);
+    return safeV8::Done;
+    }
+
 
   if (source_start > ts_obj_length)
-    return env->ThrowRangeError("out of range index");
+        {
+env->ThrowRangeError("out of range index");
+    return safeV8::Done;
+    }
+
 
   if (source_end - source_start > target_length - target_start)
     source_end = source_start + target_length - target_start;
@@ -570,6 +590,11 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
 
   memmove(target_data + target_start, ts_obj_data + source_start, to_copy);
   args.GetReturnValue().Set(to_copy);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -666,6 +691,7 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
 
 template <encoding encoding>
 void StringWrite(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
@@ -674,17 +700,27 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
   if (!args[0]->IsString())
     return env->ThrowTypeError("Argument must be a string");
 
-  Local<String> str = args[0]->ToString(env->isolate());
+    safeV8::ToString(isolate, args[0])
+  .OnVal([&](Local<String> args0_str)-> safeV8::SafeV8Promise_Base {
+Local<String> str = args0_str;
 
   if (encoding == HEX && str->Length() % 2 != 0)
-    return env->ThrowTypeError("Invalid hex string");
+        {
+env->ThrowTypeError("Invalid hex string");
+    return safeV8::Done;
+    }
+
 
   size_t offset;
   size_t max_length;
 
   THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[1], 0, &offset));
   if (offset > ts_obj_length)
-    return env->ThrowRangeError("Offset is out of bounds");
+        {
+env->ThrowRangeError("Offset is out of bounds");
+    return safeV8::Done;
+    }
+
 
   THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[2], ts_obj_length - offset,
                                           &max_length));
@@ -692,7 +728,11 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
   max_length = MIN(ts_obj_length - offset, max_length);
 
   if (max_length == 0)
-    return args.GetReturnValue().Set(0);
+        {
+args.GetReturnValue().Set(0);
+    return safeV8::Done;
+    }
+
 
   uint32_t written = StringBytes::Write(env->isolate(),
                                         ts_obj_data + offset,
@@ -701,6 +741,12 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
                                         encoding,
                                         nullptr);
   args.GetReturnValue().Set(written);
+
+  return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -789,6 +835,10 @@ void ReadDoubleBE(const FunctionCallbackInfo<Value>& args) {
 
 template <typename T, enum Endianness endianness>
 void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Uint8Array> args0) -> safeV8::SafeV8Promise_Base {
   Environment* env = Environment::GetCurrent(args);
 
   bool should_assert = args.Length() < 4;
@@ -797,7 +847,7 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
     THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   }
 
-  Local<Uint8Array> ts_obj = args[0].As<Uint8Array>();
+  Local<Uint8Array> ts_obj = args0;
   ArrayBuffer::Contents ts_obj_c = ts_obj->Buffer()->GetContents();
   const size_t ts_obj_offset = ts_obj->ByteOffset();
   const size_t ts_obj_length = ts_obj->ByteLength();
@@ -829,6 +879,11 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   if (endianness != GetEndianness())
     Swizzle(na.bytes, sizeof(na.bytes));
   memcpy(ptr, na.bytes, memcpy_num);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -853,10 +908,18 @@ void WriteDoubleBE(const FunctionCallbackInfo<Value>& args) {
 
 
 void ByteLengthUtf8(const FunctionCallbackInfo<Value> &args) {
-  CHECK(args[0]->IsString());
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
 
   // Fast case: avoid StringBytes on UTF8 string. Jump to v8.
-  args.GetReturnValue().Set(args[0].As<String>()->Utf8Length());
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0) -> safeV8::SafeV8Promise_Base {
+  args.GetReturnValue().Set(args0->Utf8Length());
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 // Normalize val to be an integer in the range of [1, -1] since
@@ -1197,10 +1260,13 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
 
 // pass Buffer object to load prototype methods
 void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK(args[0]->IsObject());
-  Local<Object> proto = args[0].As<Object>();
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
+  Local<Object> proto = args0;
   env->set_buffer_prototype_object(proto);
 
   env->SetMethod(proto, "asciiSlice", AsciiSlice);
@@ -1220,15 +1286,41 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
   env->SetMethod(proto, "copy", Copy);
 
   if (auto zero_fill_field = env->isolate_data()->zero_fill_field()) {
-    CHECK(args[1]->IsObject());
-    auto binding_object = args[1].As<Object>();
+    
+    {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::With(isolate, args[1])
+  .OnVal([&](Local<Object> args1) -> safeV8::SafeV8Promise_Base {
+  auto binding_object = args1;
     auto array_buffer = ArrayBuffer::New(env->isolate(),
                                          zero_fill_field,
                                          sizeof(*zero_fill_field));
     auto name = FIXED_ONE_BYTE_STRING(env->isolate(), "zeroFill");
     auto value = Uint32Array::New(array_buffer, 0, 1);
-    CHECK(binding_object->Set(env->context(), name, value).FromJust());
-  }
+      {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, binding_object,name,value)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+    return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+}
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 

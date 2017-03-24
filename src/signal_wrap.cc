@@ -39,7 +39,7 @@ class SignalWrap : public HandleWrap {
                 constructor->GetFunction());
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  private:
   static void New(const FunctionCallbackInfo<Value>& args) {
@@ -61,7 +61,8 @@ class SignalWrap : public HandleWrap {
   }
 
   static void Start(const FunctionCallbackInfo<Value>& args) {
-    SignalWrap* wrap;
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  SignalWrap* wrap;
     ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
     int signum = args[0]->Int32Value();
 #if defined(__POSIX__) && HAVE_INSPECTOR

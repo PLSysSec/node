@@ -47,7 +47,7 @@ class TimerWrap : public HandleWrap {
                 constructor->GetFunction());
   }
 
-  size_t self_size() const override { return sizeof(*this); }
+  size_t self_size( ) const override { return sizeof(*this); }
 
  private:
   static void New(const FunctionCallbackInfo<Value>& args) {

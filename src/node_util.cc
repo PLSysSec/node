@@ -3,6 +3,7 @@
 #include "v8.h"
 #include "env.h"
 #include "env-inl.h"
+#include "safe_v8.h"
 
 namespace node {
 namespace util {
@@ -43,21 +44,42 @@ using v8::Value;
 
 static void GetProxyDetails(const FunctionCallbackInfo<Value>& args) {
   // Return undefined if it's not a proxy.
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   if (!args[0]->IsProxy())
     return;
 
   Local<Proxy> proxy = args[0].As<Proxy>();
 
   Local<Array> ret = Array::New(args.GetIsolate(), 2);
-  ret->Set(0, proxy->GetTarget());
-  ret->Set(1, proxy->GetHandler());
+    safeV8::Set(isolate, ret,0,proxy->GetTarget())
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, ret,1,proxy->GetHandler())
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
 
   args.GetReturnValue().Set(ret);
+
+  return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+  
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 inline Local<Private> IndexToPrivateSymbol(Environment* env, uint32_t index) {
 #define V(name, _) &Environment::name,
-  static Local<Private> (Environment::*const methods[])() const = {
+  static Local<Private> (Environment::*const methods[])( ) const = {
     PER_ISOLATE_PRIVATE_SYMBOL_PROPERTIES(V)
   };
 #undef V
@@ -66,6 +88,7 @@ inline Local<Private> IndexToPrivateSymbol(Environment* env, uint32_t index) {
 }
 
 static void GetHiddenValue(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsObject())
@@ -83,6 +106,7 @@ static void GetHiddenValue(const FunctionCallbackInfo<Value>& args) {
 }
 
 static void SetHiddenValue(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsObject())

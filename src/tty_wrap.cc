@@ -10,7 +10,7 @@
 #include "stream_wrap.h"
 #include "util.h"
 #include "util-inl.h"
-
+#include "safe_v8.h"
 namespace node {
 
 using v8::Array;
@@ -49,7 +49,7 @@ void TTYWrap::Initialize(Local<Object> target,
 }
 
 
-uv_tty_t* TTYWrap::UVHandle() {
+uv_tty_t* TTYWrap::UVHandle( ) {
   return &handle_;
 }
 
@@ -86,28 +86,59 @@ void TTYWrap::IsTTY(const FunctionCallbackInfo<Value>& args) {
 
 
 void TTYWrap::GetWindowSize(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   TTYWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap,
                           args.Holder(),
                           args.GetReturnValue().Set(UV_EBADF));
-  CHECK(args[0]->IsArray());
+  
 
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Array> args0) -> safeV8::SafeV8Promise_Base {
   int width, height;
   int err = uv_tty_get_winsize(&wrap->handle_, &width, &height);
 
   if (err == 0) {
-    Local<v8::Array> a = args[0].As<Array>();
-    a->Set(0, Integer::New(env->isolate(), width));
-    a->Set(1, Integer::New(env->isolate(), height));
-  }
+    Local<v8::Array> a = args0;
+      {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::Set(isolate, a,0,Integer::New(env->isolate(),width))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, a,1,Integer::New(env->isolate(),height))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+    return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+}
+}
 
   args.GetReturnValue().Set(err);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 void TTYWrap::SetRawMode(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   TTYWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap,
                           args.Holder(),
@@ -118,15 +149,20 @@ void TTYWrap::SetRawMode(const FunctionCallbackInfo<Value>& args) {
 
 
 void TTYWrap::New(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   // This constructor should not be exposed to public javascript.
   // Therefore we assert that we are not trying to call this as a
   // normal function.
-  CHECK(args.IsConstructCall());
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
 
   int fd = args[0]->Int32Value();
-  CHECK_GE(fd, 0);
+  if(fd < 0) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(fd,0);");
+  }
 
   TTYWrap* wrap = new TTYWrap(env, args.This(), fd, args[1]->IsTrue());
   wrap->UpdateWriteQueueSize();

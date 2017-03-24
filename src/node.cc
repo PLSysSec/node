@@ -7,7 +7,7 @@
 #include "node_version.h"
 #include "node_internals.h"
 #include "node_revert.h"
-
+#include "safe_v8.h"
 #if defined HAVE_PERFCTR
 #include "node_counters.h"
 #endif
@@ -212,7 +212,7 @@ static struct {
     v8::platform::PumpMessageLoop(platform_, isolate);
   }
 
-  void Dispose() {
+  void Dispose( ) {
     delete platform_;
     platform_ = nullptr;
   }
@@ -230,7 +230,7 @@ static struct {
 #else  // !NODE_USE_V8_PLATFORM
   void Initialize(int thread_pool_size) {}
   void PumpMessageLoop(Isolate* isolate) {}
-  void Dispose() {}
+  void Dispose( ) {}
   bool StartInspector(Environment *env, const char* script_path,
                       int port, bool wait) {
     env->ThrowError("Node compiled with NODE_USE_V8_PLATFORM=0");
@@ -1056,10 +1056,19 @@ static bool ShouldAbortOnUncaughtException(Isolate* isolate) {
 
 
 void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+    safeV8::Get(isolate, process_object,tick_callback_function_key)
+  .OnVal([&](Local<Value> process_object_tick_callback_function_key)-> safeV8::SafeV8Promise_Base {
+{
+    bool safeV8_Failed4 = false;
+    Local<Value> safeV8_exceptionThrown4;
+safeV8::With(isolate, process_object_tick_callback_function_key)
+  .OnVal([&](Local<Function> process_objectGettick_callback_function_key) -> safeV8::SafeV8Promise_Base {
   Environment* env = Environment::GetCurrent(args);
 
   if (env->using_domains())
-    return;
+    return safeV8::Done;
   env->set_using_domains(true);
 
   HandleScope scope(env->isolate());
@@ -1067,21 +1076,36 @@ void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
 
   Local<String> tick_callback_function_key = env->tick_domain_cb_string();
   Local<Function> tick_callback_function =
-      process_object->Get(tick_callback_function_key).As<Function>();
+      process_objectGettick_callback_function_key;
 
   if (!tick_callback_function->IsFunction()) {
     fprintf(stderr, "process._tickDomainCallback assigned to non-function\n");
     ABORT();
   }
 
-  process_object->Set(env->tick_callback_string(), tick_callback_function);
+    {
+    bool safeV8_Failed3 = false;
+    Local<Value> safeV8_exceptionThrown3;
+safeV8::Set(isolate, process_object,env->tick_callback_string(),tick_callback_function)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
   env->set_tick_callback_function(tick_callback_function);
 
-  CHECK(args[0]->IsArray());
-  env->set_domain_array(args[0].As<Array>());
+  
+  {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Array> args0) -> safeV8::SafeV8Promise_Base {
+  env->set_domain_array(args0);
 
-  CHECK(args[1]->IsArray());
-  env->set_domains_stack_array(args[1].As<Array>());
+  
+  {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::With(isolate, args[1])
+  .OnVal([&](Local<Array> args1) -> safeV8::SafeV8Promise_Base {
+  env->set_domains_stack_array(args1);
 
   // Do a little housekeeping.
   env->process_object()->Delete(
@@ -1095,6 +1119,37 @@ void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
       ArrayBuffer::New(env->isolate(), fields, sizeof(*fields) * fields_count);
 
   args.GetReturnValue().Set(Uint32Array::New(array_buffer, 0, fields_count));
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
+    if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed4 = true; safeV8_exceptionThrown4 = exception; });
+    if(safeV8_Failed4) return safeV8::Err(safeV8_exceptionThrown4);
+
+  
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 void RunMicrotasks(const FunctionCallbackInfo<Value>& args) {
@@ -1103,26 +1158,37 @@ void RunMicrotasks(const FunctionCallbackInfo<Value>& args) {
 
 
 void SetupProcessObject(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK(args[0]->IsFunction());
+  
 
-  env->set_push_values_to_array_function(args[0].As<Function>());
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Function> args0) -> safeV8::SafeV8Promise_Base {
+  env->set_push_values_to_array_function(args0);
   env->process_object()->Delete(
       env->context(),
       FIXED_ONE_BYTE_STRING(env->isolate(), "_setupProcessObject")).FromJust();
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 void SetupNextTick(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK(args[0]->IsFunction());
-  CHECK(args[1]->IsObject());
+  
+  
 
-  env->set_tick_callback_function(args[0].As<Function>());
+  safeV8::With(isolate, args[0], args[1])
+  .OnVal([&](Local<Function> args0, Local<Object> args1) -> safeV8::SafeV8Promise_Base {
+  env->set_tick_callback_function(args0);
 
-  env->SetMethod(args[1].As<Object>(), "runMicrotasks", RunMicrotasks);
+  env->SetMethod(args1, "runMicrotasks", RunMicrotasks);
 
   // Do a little housekeeping.
   env->process_object()->Delete(
@@ -1137,6 +1203,11 @@ void SetupNextTick(const FunctionCallbackInfo<Value>& args) {
       ArrayBuffer::New(env->isolate(), fields, sizeof(*fields) * fields_count);
 
   args.GetReturnValue().Set(Uint32Array::New(array_buffer, 0, fields_count));
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 void PromiseRejectCallback(PromiseRejectMessage message) {
@@ -1161,14 +1232,21 @@ void SetupPromises(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = env->isolate();
 
-  CHECK(args[0]->IsFunction());
+  
 
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Function> args0) -> safeV8::SafeV8Promise_Base {
   isolate->SetPromiseRejectCallback(PromiseRejectCallback);
-  env->set_promise_reject_function(args[0].As<Function>());
+  env->set_promise_reject_function(args0);
 
   env->process_object()->Delete(
       env->context(),
       FIXED_ONE_BYTE_STRING(args.GetIsolate(), "_setupPromises")).FromJust();
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -1730,6 +1808,7 @@ static void GetActiveRequests(const FunctionCallbackInfo<Value>& args) {
 // Non-static, friend of HandleWrap. Could have been a HandleWrap method but
 // implemented here for consistency with GetActiveRequests().
 void GetActiveHandles(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   Local<Array> ary = Array::New(env->isolate());
@@ -1744,7 +1823,9 @@ void GetActiveHandles(const FunctionCallbackInfo<Value>& args) {
     if (w->persistent().IsEmpty() || !HandleWrap::HasRef(w))
       continue;
     Local<Object> object = w->object();
-    Local<Value> owner = object->Get(owner_sym);
+      safeV8::Get(isolate, object,owner_sym)
+  .OnVal([&](Local<Value> object_owner_sym)-> safeV8::SafeV8Promise_Base {
+Local<Value> owner = object_owner_sym;
     if (owner->IsUndefined())
       owner = object;
     argv[idx] = owner;
@@ -1752,7 +1833,13 @@ void GetActiveHandles(const FunctionCallbackInfo<Value>& args) {
       fn->Call(ctx, ary, idx, argv).ToLocalChecked();
       idx = 0;
     }
-  }
+  
+  return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
   if (idx > 0) {
     fn->Call(ctx, ary, idx, argv).ToLocalChecked();
   }
@@ -1761,7 +1848,7 @@ void GetActiveHandles(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-NO_RETURN void Abort() {
+NO_RETURN void Abort( ) {
   DumpBacktrace(stderr);
   fflush(stderr);
   ABORT_NO_BACKTRACE();
@@ -1799,6 +1886,7 @@ static void Abort(const FunctionCallbackInfo<Value>& args) {
 
 
 static void Chdir(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (args.Length() != 1 || !args[0]->IsString()) {
@@ -1998,6 +2086,7 @@ static void GetEGid(const FunctionCallbackInfo<Value>& args) {
 
 
 static void SetGid(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsUint32() && !args[0]->IsString()) {
@@ -2017,6 +2106,7 @@ static void SetGid(const FunctionCallbackInfo<Value>& args) {
 
 
 static void SetEGid(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsUint32() && !args[0]->IsString()) {
@@ -2036,6 +2126,7 @@ static void SetEGid(const FunctionCallbackInfo<Value>& args) {
 
 
 static void SetUid(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsUint32() && !args[0]->IsString()) {
@@ -2055,6 +2146,7 @@ static void SetUid(const FunctionCallbackInfo<Value>& args) {
 
 
 static void SetEUid(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsUint32() && !args[0]->IsString()) {
@@ -2074,6 +2166,7 @@ static void SetEUid(const FunctionCallbackInfo<Value>& args) {
 
 
 static void GetGroups(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   int ngroups = getgroups(0, nullptr);
@@ -2096,22 +2189,37 @@ static void GetGroups(const FunctionCallbackInfo<Value>& args) {
   gid_t egid = getegid();
 
   for (int i = 0; i < ngroups; i++) {
-    groups_list->Set(i, Integer::New(env->isolate(), groups[i]));
+      safeV8::Set(isolate, groups_list,i,Integer::New(env->isolate(),groups[i]))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
     if (groups[i] == egid)
       seen_egid = true;
-  }
+  
+  return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   delete[] groups;
 
   if (seen_egid == false) {
-    groups_list->Set(ngroups, Integer::New(env->isolate(), egid));
-  }
+      safeV8::Set(isolate, groups_list,ngroups,Integer::New(env->isolate(),egid))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+    return safeV8::Done;
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   args.GetReturnValue().Set(groups_list);
 }
 
 
 static void SetGroups(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsArray()) {
@@ -2123,15 +2231,29 @@ static void SetGroups(const FunctionCallbackInfo<Value>& args) {
   gid_t* groups = new gid_t[size];
 
   for (size_t i = 0; i < size; i++) {
-    gid_t gid = gid_by_name(env->isolate(), groups_list->Get(i));
+      int lambdaRetControlFlow0 = 0;
+    safeV8::Get(isolate, groups_list,i)
+  .OnVal([&](Local<Value> groups_list_i)-> safeV8::SafeV8Promise_Base {
+gid_t gid = gid_by_name(env->isolate(), groups_list_i);
 
     if (gid == gid_not_found) {
       delete[] groups;
-      return env->ThrowError("group name not found");
-    }
+      { lambdaRetControlFlow0 = 1;env->ThrowError("group name not found");
+    return safeV8::Done;
+     }}
 
     groups[i] = gid;
-  }
+  
+  return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+
+    if(lambdaRetControlFlow0 == 1) {
+         return;
+    }
+}
 
   int rc = setgroups(size, groups);
   delete[] groups;
@@ -2143,6 +2265,7 @@ static void SetGroups(const FunctionCallbackInfo<Value>& args) {
 
 
 static void InitGroups(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsUint32() && !args[0]->IsString()) {
@@ -2231,6 +2354,7 @@ static void Uptime(const FunctionCallbackInfo<Value>& args) {
 
 
 void MemoryUsage(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   size_t rss;
@@ -2249,11 +2373,43 @@ void MemoryUsage(const FunctionCallbackInfo<Value>& args) {
       Number::New(env->isolate(), v8_heap_stats.used_heap_size());
 
   Local<Object> info = Object::New(env->isolate());
-  info->Set(env->rss_string(), Number::New(env->isolate(), rss));
-  info->Set(env->heap_total_string(), heap_total);
-  info->Set(env->heap_used_string(), heap_used);
+    safeV8::Set(isolate, info,env->rss_string(),Number::New(env->isolate(),rss))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::Set(isolate, info,env->heap_total_string(),heap_total)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, info,env->heap_used_string(),heap_used)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
 
   args.GetReturnValue().Set(info);
+
+  return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+  
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -2279,9 +2435,13 @@ void Kill(const FunctionCallbackInfo<Value>& args) {
 // and nanoseconds, to avoid any integer overflow possibility.
 // Pass in an Array from a previous hrtime() call to instead get a time diff.
 void Hrtime(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Uint32Array> args0) -> safeV8::SafeV8Promise_Base {
   uint64_t t = uv_hrtime();
 
-  Local<ArrayBuffer> ab = args[0].As<Uint32Array>()->Buffer();
+  Local<ArrayBuffer> ab = args0->Buffer();
   uint32_t* fields = static_cast<uint32_t*>(ab->GetContents().Data());
 
   // These three indices will contain the values for the hrtime tuple. The
@@ -2290,6 +2450,11 @@ void Hrtime(const FunctionCallbackInfo<Value>& args) {
   fields[0] = (t / NANOS_PER_SEC) >> 32;
   fields[1] = (t / NANOS_PER_SEC) & 0xffffffff;
   fields[2] = t % NANOS_PER_SEC;
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 // Microseconds in a second, as a float, used in CPUUsage() below
@@ -2301,6 +2466,7 @@ void Hrtime(const FunctionCallbackInfo<Value>& args) {
 // Returns those values as Float64 microseconds in the elements of the array
 // passed to the function.
 void CPUUsage(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   uv_rusage_t rusage;
 
   // Call libuv to get the values we'll return.
@@ -2313,15 +2479,25 @@ void CPUUsage(const FunctionCallbackInfo<Value>& args) {
   }
 
   // Get the double array pointer from the Float64Array argument.
-  CHECK(args[0]->IsFloat64Array());
-  Local<Float64Array> array = args[0].As<Float64Array>();
-  CHECK_EQ(array->Length(), 2);
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Float64Array> args0) -> safeV8::SafeV8Promise_Base {
+  Local<Float64Array> array = args0;
+  if(array->Length() != 2) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(array->Length(),2);");
+    return safeV8::Done;
+  }
   Local<ArrayBuffer> ab = array->Buffer();
   double* fields = static_cast<double*>(ab->GetContents().Data());
 
   // Set the Float64Array elements to be user / system values in microseconds.
   fields[0] = MICROS_PER_SEC * rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec;
   fields[1] = MICROS_PER_SEC * rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec;
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 extern "C" void node_module_register(void* m) {
@@ -2374,10 +2550,13 @@ typedef void (UV_DYNAMIC* extInit)(Local<Object> exports);
 // when two contexts try to load the same shared object. Maybe have a shadow
 // cache that's a plain C list or hash table that's shared across contexts?
 void DLOpen(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
   uv_lib_t lib;
 
-  CHECK_EQ(modpending, nullptr);
+  if(modpending != nullptr) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(modpending,nullptr);");
+  }
 
   if (args.Length() != 2) {
     env->ThrowError("process.dlopen takes exactly 2 arguments.");
@@ -2399,11 +2578,24 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
     uv_dlclose(&lib);
 #ifdef _WIN32
     // Windows needs to add the filename into the error message
-    errmsg = String::Concat(errmsg, args[1]->ToString(env->isolate()));
+      int lambdaRetControlFlow0 = 0;
+    safeV8::ToString(isolate, args[1])
+  .OnVal([&](Local<String> args1_str)-> safeV8::SafeV8Promise_Base {
+errmsg = String::Concat(errmsg, args1_str);
 #endif  // _WIN32
     env->isolate()->ThrowException(Exception::Error(errmsg));
-    return;
-  }
+    { lambdaRetControlFlow0 = 1;return safeV8::Done;
+  
+   }return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+
+    if(lambdaRetControlFlow0 == 1) {
+         return;
+    }
+}
 
   if (mp == nullptr) {
     uv_dlclose(&lib);
@@ -2434,7 +2626,9 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
   modlist_addon = mp;
 
   Local<String> exports_string = env->exports_string();
-  Local<Object> exports = module->Get(exports_string)->ToObject(env->isolate());
+    safeV8::Get(isolate, module,exports_string)
+  .OnVal([&](Local<Value> module_exports_string)-> safeV8::SafeV8Promise_Base {
+Local<Object> exports = module_exports_string->ToObject(env->isolate());
 
   if (mp->nm_context_register_func != nullptr) {
     mp->nm_context_register_func(exports, module, env->context(), mp->nm_priv);
@@ -2443,11 +2637,17 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
   } else {
     uv_dlclose(&lib);
     env->ThrowError("Module has no declared entry point.");
-    return;
+    return safeV8::Done;
   }
 
   // Tell coverity that 'handle' should not be freed when we return.
   // coverity[leaked_storage]
+
+  return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -2556,19 +2756,39 @@ void ClearFatalExceptionHandlers(Environment* env) {
 
 
 static void Binding(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  Local<String> module = args[0]->ToString(env->isolate());
+    safeV8::ToString(isolate, args[0])
+  .OnVal([&](Local<String> args0_str)-> safeV8::SafeV8Promise_Base {
+Local<String> module = args0_str;
   node::Utf8Value module_v(env->isolate(), module);
 
   Local<Object> cache = env->binding_cache_object();
   Local<Object> exports;
 
   if (cache->Has(env->context(), module).FromJust()) {
-    exports = cache->Get(module)->ToObject(env->isolate());
+      int lambdaRetControlFlow0 = 0;
+    {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Get(isolate, cache,module)
+  .OnVal([&](Local<Value> cache_module)-> safeV8::SafeV8Promise_Base {
+exports = cache_module->ToObject(env->isolate());
     args.GetReturnValue().Set(exports);
-    return;
-  }
+    { lambdaRetControlFlow0 = 1;return safeV8::Done;
+  
+   }return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+    
+}
+if(lambdaRetControlFlow0 == 1) {
+         return safeV8::Done;
+    }
+}
 
   // Append a string to process.moduleLoadList
   char buf[1024];
@@ -2576,7 +2796,12 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
 
   Local<Array> modules = env->module_load_list_array();
   uint32_t l = modules->Length();
-  modules->Set(l, OneByteString(env->isolate(), buf));
+    {
+    bool safeV8_Failed3 = false;
+    Local<Value> safeV8_exceptionThrown3;
+safeV8::Set(isolate, modules,l,OneByteString(env->isolate(),buf))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
 
   node_module* mod = get_builtin_module(*module_v);
   if (mod != nullptr) {
@@ -2587,37 +2812,57 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
     Local<Value> unused = Undefined(env->isolate());
     mod->nm_context_register_func(exports, unused,
       env->context(), mod->nm_priv);
-    cache->Set(module, exports);
-  } else if (!strcmp(*module_v, "constants")) {
-    exports = Object::New(env->isolate());
-    DefineConstants(env->isolate(), exports);
-    cache->Set(module, exports);
-  } else if (!strcmp(*module_v, "natives")) {
-    exports = Object::New(env->isolate());
-    DefineJavaScript(env, exports);
-    cache->Set(module, exports);
-  } else {
-    char errmsg[1024];
-    snprintf(errmsg,
-             sizeof(errmsg),
-             "No such module: %s",
-             *module_v);
-    return env->ThrowError(errmsg);
-  }
+      {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::Set(isolate, cache,module,exports)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+    return safeV8::Done;
+  })
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+}
+} else 
 
   args.GetReturnValue().Set(exports);
+
+  
+  return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
+    if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 static void LinkedBinding(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args.GetIsolate());
 
-  Local<String> module_name = args[0]->ToString(env->isolate());
+    safeV8::ToString(isolate, args[0])
+  .OnVal([&](Local<String> args0_str)-> safeV8::SafeV8Promise_Base {
+Local<String> module_name = args0_str;
 
   Local<Object> cache = env->binding_cache_object();
-  Local<Value> exports_v = cache->Get(module_name);
+    {
+    bool safeV8_Failed4 = false;
+    Local<Value> safeV8_exceptionThrown4;
+safeV8::Get(isolate, cache,module_name)
+  .OnVal([&](Local<Value> cache_module_name)-> safeV8::SafeV8Promise_Base {
+Local<Value> exports_v = cache_module_name;
 
   if (exports_v->IsObject())
-    return args.GetReturnValue().Set(exports_v.As<Object>());
+        {
+args.GetReturnValue().Set(exports_v.As<Object>());
+    return safeV8::Done;
+    }
+
 
   node::Utf8Value module_name_v(env->isolate(), module_name);
   node_module* mod = get_linked_module(*module_name_v);
@@ -2628,13 +2873,19 @@ static void LinkedBinding(const FunctionCallbackInfo<Value>& args) {
              sizeof(errmsg),
              "No such module was linked: %s",
              *module_name_v);
-    return env->ThrowError(errmsg);
+    env->ThrowError(errmsg);
+    return safeV8::Done;
   }
 
   Local<Object> module = Object::New(env->isolate());
   Local<Object> exports = Object::New(env->isolate());
   Local<String> exports_prop = String::NewFromUtf8(env->isolate(), "exports");
-  module->Set(exports_prop, exports);
+    {
+    bool safeV8_Failed3 = false;
+    Local<Value> safeV8_exceptionThrown3;
+safeV8::Set(isolate, module,exports_prop,exports)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
 
   if (mod->nm_context_register_func != nullptr) {
     mod->nm_context_register_func(exports,
@@ -2644,13 +2895,58 @@ static void LinkedBinding(const FunctionCallbackInfo<Value>& args) {
   } else if (mod->nm_register_func != nullptr) {
     mod->nm_register_func(exports, module, mod->nm_priv);
   } else {
-    return env->ThrowError("Linked module has no declared entry point.");
+    env->ThrowError("Linked module has no declared entry point.");
+    return safeV8::Done;
   }
 
-  auto effective_exports = module->Get(exports_prop);
-  cache->Set(module_name, effective_exports);
+    {
+    bool safeV8_Failed2 = false;
+    Local<Value> safeV8_exceptionThrown2;
+safeV8::Get(isolate, module,exports_prop)
+  .OnVal([&](Local<Value> module_exports_prop)-> safeV8::SafeV8Promise_Base {
+auto effective_exports = module_exports_prop;
+    {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, cache,module_name,effective_exports)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
 
   args.GetReturnValue().Set(effective_exports);
+
+  
+  return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed2 = true; safeV8_exceptionThrown2 = exception; });
+    if(safeV8_Failed2) return safeV8::Err(safeV8_exceptionThrown2);
+
+  
+  
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed3 = true; safeV8_exceptionThrown3 = exception; });
+    if(safeV8_Failed3) return safeV8::Err(safeV8_exceptionThrown3);
+
+}
+return safeV8::Done;
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed4 = true; safeV8_exceptionThrown4 = exception; });
+    if(safeV8_Failed4) return safeV8::Err(safeV8_exceptionThrown4);
+
+  
+}
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 static void ProcessTitleGetter(Local<Name> property,
@@ -3342,7 +3638,7 @@ void SetupProcessObject(Environment* env,
 #undef READONLY_PROPERTY
 
 
-static void AtProcessExit() {
+static void AtProcessExit( ) {
   uv_tty_reset_mode();
 }
 
@@ -3365,6 +3661,7 @@ void SignalExit(int signo) {
 // when debugging the stream.Writable class or the process.nextTick
 // function, it is useful to bypass JavaScript entirely.
 static void RawDebug(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   CHECK(args.Length() == 1 && args[0]->IsString() &&
         "must be called with a single string");
   node::Utf8Value message(args.GetIsolate(), args[0]);
@@ -3526,7 +3823,7 @@ static bool ParseDebugOpt(const char* arg) {
   return true;
 }
 
-static void PrintHelp() {
+static void PrintHelp( ) {
   // XXX: If you add an option here, please also add it to doc/node.1 and
   // doc/api/cli.md
   printf("Usage: node [options] [ -e script | script.js ] [arguments] \n"
@@ -3829,7 +4126,7 @@ static void EnableDebug(Environment* env) {
 
 
 // Called from an arbitrary thread.
-static void TryStartDebugger() {
+static void TryStartDebugger( ) {
   Mutex::ScopedLock scoped_lock(node_isolate_mutex);
   if (auto isolate = node_isolate) {
     v8::Debug::DebugBreak(isolate);
@@ -3909,7 +4206,7 @@ inline void* DebugSignalThreadMain(void* unused) {
 }
 
 
-static int RegisterDebugSignalHandler() {
+static int RegisterDebugSignalHandler( ) {
   // Start a watchdog thread for calling v8::Debug::DebugBreak() because
   // it's not safe to call directly from the signal handler, it can
   // deadlock with the thread it interrupts.
@@ -3961,7 +4258,7 @@ static int GetDebugSignalHandlerMappingName(DWORD pid, wchar_t* buf,
 }
 
 
-static int RegisterDebugSignalHandler() {
+static int RegisterDebugSignalHandler( ) {
   wchar_t mapping_name[32];
   HANDLE mapping_handle;
   DWORD pid;
@@ -4116,7 +4413,7 @@ static void DebugEnd(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-inline void PlatformInit() {
+inline void PlatformInit( ) {
 #ifdef __POSIX__
   sigset_t sigmask;
   sigemptyset(&sigmask);

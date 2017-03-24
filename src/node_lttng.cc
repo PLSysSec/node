@@ -129,6 +129,7 @@ void LTTNG_NET_STREAM_END(const FunctionCallbackInfo<Value>& args) {
 
 
 void LTTNG_HTTP_SERVER_REQUEST(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   node_lttng_http_server_request_t req;
 
   if (!NODE_HTTP_SERVER_REQUEST_ENABLED())
@@ -152,7 +153,9 @@ void LTTNG_HTTP_SERVER_REQUEST(const FunctionCallbackInfo<Value>& args) {
       "expected object for request to contain string member headers");
   }
 
-  Local<Value> strfwdfor = headers->Get(env->x_forwarded_string());
+    safeV8::Get(isolate, headers,env->x_forwarded_string())
+  .OnVal([&](Local<Value> headers_envx_forwarded_string)-> safeV8::SafeV8Promise_Base {
+Local<Value> strfwdfor = headers_envx_forwarded_string;
   node::Utf8Value fwdfor(env->isolate(), strfwdfor);
   req.forwarded_for = *fwdfor;
 
@@ -160,8 +163,14 @@ void LTTNG_HTTP_SERVER_REQUEST(const FunctionCallbackInfo<Value>& args) {
     req.forwarded_for = "";
 
   SLURP_CONNECTION(args[1], conn);
-  NODE_HTTP_SERVER_REQUEST(&req, &conn, conn.remote, conn.port, req.method, \
+  NODE_HTTP_SERVER_REQUEST(&req, &conn, conn.remote, conn.port, req.method, 
                            req.url, conn.fd);
+
+  return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -175,11 +184,15 @@ void LTTNG_HTTP_SERVER_RESPONSE(const FunctionCallbackInfo<Value>& args) {
 
 
 void LTTNG_HTTP_CLIENT_REQUEST(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  
+  safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
   node_lttng_http_client_request_t req;
   char* header;
 
   if (!NODE_HTTP_CLIENT_REQUEST_ENABLED())
-    return;
+    return safeV8::Done;
 
   Environment* env = Environment::GetCurrent(args);
 
@@ -189,7 +202,7 @@ void LTTNG_HTTP_CLIENT_REQUEST(const FunctionCallbackInfo<Value>& args) {
    * caller here to retain their method and URL until the time at which
    * LTTNG_HTTP_CLIENT_REQUEST can be called.
    */
-  Local<Object> arg0 = args[0].As<Object>();
+  Local<Object> arg0 = args0;
   SLURP_STRING(arg0, _header, &header);
 
   req.method = header;
@@ -208,8 +221,13 @@ void LTTNG_HTTP_CLIENT_REQUEST(const FunctionCallbackInfo<Value>& args) {
   *header = '\0';
 
   SLURP_CONNECTION_HTTP_CLIENT(args[1], conn);
-  NODE_HTTP_CLIENT_REQUEST(&req, &conn, conn.remote, conn.port, req.method, \
+  NODE_HTTP_CLIENT_REQUEST(&req, &conn, conn.remote, conn.port, req.method, 
                            req.url, conn.fd);
+return safeV8::Done;
+})
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 

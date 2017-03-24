@@ -72,7 +72,7 @@ TLSWrap::TLSWrap(Environment* env,
 }
 
 
-TLSWrap::~TLSWrap() {
+TLSWrap::~TLSWrap( ) {
   enc_in_ = nullptr;
   enc_out_ = nullptr;
   delete clear_in_;
@@ -88,7 +88,7 @@ TLSWrap::~TLSWrap() {
 }
 
 
-void TLSWrap::MakePending() {
+void TLSWrap::MakePending( ) {
   write_item_queue_.MoveBack(&pending_write_items_);
 }
 
@@ -109,12 +109,12 @@ bool TLSWrap::InvokeQueued(int status, const char* error_str) {
 }
 
 
-void TLSWrap::NewSessionDoneCb() {
+void TLSWrap::NewSessionDoneCb( ) {
   Cycle();
 }
 
 
-void TLSWrap::InitSSL() {
+void TLSWrap::InitSSL( ) {
   // Initialize SSL
   enc_in_ = NodeBIO::New();
   enc_out_ = NodeBIO::New();
@@ -258,7 +258,7 @@ void TLSWrap::SSLInfoCallback(const SSL* ssl_, int where, int ret) {
 }
 
 
-void TLSWrap::EncOut() {
+void TLSWrap::EncOut( ) {
   // Ignore cycling data if ClientHello wasn't yet parsed
   if (!hello_parser_.IsEnded())
     return;
@@ -392,7 +392,7 @@ Local<Value> TLSWrap::GetSSLError(int status, int* err, const char** msg) {
 }
 
 
-void TLSWrap::ClearOut() {
+void TLSWrap::ClearOut( ) {
   // Ignore cycling data if ClientHello wasn't yet parsed
   if (!hello_parser_.IsEnded())
     return;
@@ -459,7 +459,7 @@ void TLSWrap::ClearOut() {
 }
 
 
-bool TLSWrap::ClearIn() {
+bool TLSWrap::ClearIn( ) {
   // Ignore cycling data if ClientHello wasn't yet parsed
   if (!hello_parser_.IsEnded())
     return false;
@@ -501,52 +501,52 @@ bool TLSWrap::ClearIn() {
 }
 
 
-void* TLSWrap::Cast() {
+void* TLSWrap::Cast( ) {
   return reinterpret_cast<void*>(this);
 }
 
 
-AsyncWrap* TLSWrap::GetAsyncWrap() {
+AsyncWrap* TLSWrap::GetAsyncWrap( ) {
   return static_cast<AsyncWrap*>(this);
 }
 
 
-bool TLSWrap::IsIPCPipe() {
+bool TLSWrap::IsIPCPipe( ) {
   return stream_->IsIPCPipe();
 }
 
 
-int TLSWrap::GetFD() {
+int TLSWrap::GetFD( ) {
   return stream_->GetFD();
 }
 
 
-bool TLSWrap::IsAlive() {
+bool TLSWrap::IsAlive( ) {
   return ssl_ != nullptr && stream_->IsAlive();
 }
 
 
-bool TLSWrap::IsClosing() {
+bool TLSWrap::IsClosing( ) {
   return stream_->IsClosing();
 }
 
 
-int TLSWrap::ReadStart() {
+int TLSWrap::ReadStart( ) {
   return stream_->ReadStart();
 }
 
 
-int TLSWrap::ReadStop() {
+int TLSWrap::ReadStop( ) {
   return stream_->ReadStop();
 }
 
 
-const char* TLSWrap::Error() const {
+const char* TLSWrap::Error( ) const {
   return error_;
 }
 
 
-void TLSWrap::ClearError() {
+void TLSWrap::ClearError( ) {
   delete[] error_;
   error_ = nullptr;
 }
@@ -832,6 +832,7 @@ void TLSWrap::GetServername(const FunctionCallbackInfo<Value>& args) {
 
 
 void TLSWrap::SetServername(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   TLSWrap* wrap;
@@ -846,7 +847,9 @@ void TLSWrap::SetServername(const FunctionCallbackInfo<Value>& args) {
   if (!wrap->is_client())
     return;
 
-  CHECK_NE(wrap->ssl_, nullptr);
+  if(wrap->ssl_ == nullptr) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_NE(wrap->ssl_,nullptr);");
+  }
 
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
   node::Utf8Value servername(env->isolate(), args[0].As<String>());

@@ -143,7 +143,7 @@ void NTAPI etw_events_enable_callback(
 }
 
 
-void init_etw() {
+void init_etw( ) {
   events_enabled = 0;
 
   advapi = LoadLibraryW(L"advapi32.dll");
@@ -171,7 +171,7 @@ void init_etw() {
 }
 
 
-void shutdown_etw() {
+void shutdown_etw( ) {
   if (advapi && event_unregister && node_provider) {
     event_unregister(node_provider);
     node_provider = 0;

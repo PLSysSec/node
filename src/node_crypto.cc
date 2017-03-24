@@ -38,6 +38,13 @@
     }                                                         \
   } while (0)
 
+#define THROW_AND_RETURN_IF_NOT_BUFFER_SAFE(val, prefix)           \
+  do {                                                        \
+    if (!Buffer::HasInstance(val)) {                          \
+       env->ThrowTypeError(prefix " must be a buffer"); return safeV8::Done; \
+    }                                                         \
+  } while (0)
+
 #define THROW_AND_RETURN_IF_NOT_STRING(val, prefix)           \
   do {                                                        \
     if (!val->IsString()) {                                   \
@@ -3383,7 +3390,7 @@ env->ThrowTypeError("Auth tag must be a Buffer");
 
 
   CipherBase* cipher;
-  ASSIGN_OR_RETURN_UNWRAP(&cipher, args.Holder());
+  ASSIGN_OR_RETURN_UNWRAP(&cipher, args.Holder(), safeV8::Done);
 
   if (!cipher->SetAuthTag(Buffer::Data(buf), Buffer::Length(buf)))
     env->ThrowError("Attempting to set auth tag in unsupported state");
@@ -5049,9 +5056,9 @@ void ECDH::SetPrivateKey(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   ECDH* ecdh;
-  ASSIGN_OR_RETURN_UNWRAP(&ecdh, args.Holder());
+  ASSIGN_OR_RETURN_UNWRAP(&ecdh, args.Holder(), safeV8::Done);
 
-  THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "Private key");
+  THROW_AND_RETURN_IF_NOT_BUFFER_SAFE(args[0], "Private key");
 
   BIGNUM* priv = BN_bin2bn(
       reinterpret_cast<unsigned char*>(Buffer::Data(args0)),
@@ -5126,9 +5133,9 @@ void ECDH::SetPublicKey(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   ECDH* ecdh;
-  ASSIGN_OR_RETURN_UNWRAP(&ecdh, args.Holder());
+  ASSIGN_OR_RETURN_UNWRAP(&ecdh, args.Holder(), safeV8::Done);
 
-  THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "Public key");
+  THROW_AND_RETURN_IF_NOT_BUFFER_SAFE(args[0], "Public key");
 
   EC_POINT* pub = ecdh->BufferToPoint(Buffer::Data(args0),
                                       Buffer::Length(args0));

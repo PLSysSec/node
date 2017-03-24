@@ -398,7 +398,7 @@ class Parser : public AsyncWrap {
   safeV8::With(isolate, args[0])
   .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
   Parser* parser;
-    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
+    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder(), safeV8::Done);
     if(!(parser->current_buffer_.IsEmpty())) {
     Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(parser->current_buffer_.IsEmpty());");
     return safeV8::Done;
@@ -519,7 +519,7 @@ return safeV8::Done;
   safeV8::With(isolate, args[0])
   .OnVal([&](Local<External> args0) -> safeV8::SafeV8Promise_Base {
   Parser* parser;
-    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder());
+    ASSIGN_OR_RETURN_UNWRAP(&parser, args.Holder(), safeV8::Done);
     Local<External> stream_obj = args0;
     StreamBase* stream = static_cast<StreamBase*>(stream_obj->Value());
     if(stream == nullptr) {

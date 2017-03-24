@@ -51,10 +51,28 @@ using v8::Value;
   if ((*(const char **)valp = *_##member) == nullptr) \
     *(const char **)valp = "<unknown>";
 
+#define SLURP_STRING_SAFE(obj, member, valp) \
+  if (!(obj)->IsObject()) { \
+    env->ThrowError( \
+        "expected object for " #obj " to contain string member " #member);   return safeV8::Done; \
+  } \
+  node::Utf8Value _##member(env->isolate(), \
+      obj->Get(OneByteString(env->isolate(), #member))); \
+  if ((*(const char **)valp = *_##member) == nullptr) \
+    *(const char **)valp = "<unknown>";
+
 #define SLURP_INT(obj, member, valp) \
   if (!(obj)->IsObject()) { \
     return env->ThrowError( \
       "expected object for " #obj " to contain integer member " #member); \
+  } \
+  *valp = obj->Get(OneByteString(env->isolate(), #member)) \
+      ->ToInteger(env->isolate())->Value();
+
+#define SLURP_INT_SAFE(obj, member, valp) \
+  if (!(obj)->IsObject()) { \
+    env->ThrowError( \
+      "expected object for " #obj " to contain integer member " #member);  return safeV8::Done; \
   } \
   *valp = obj->Get(OneByteString(env->isolate(), #member)) \
       ->ToInteger(env->isolate())->Value();
@@ -83,6 +101,24 @@ using v8::Value;
   SLURP_STRING(_##conn, remoteAddress, &conn.remote); \
   SLURP_INT(_##conn, remotePort, &conn.port); \
   SLURP_INT(_##conn, bufferSize, &conn.buffered);
+
+#define SLURP_CONNECTION_SAFE(arg, conn) \
+  if (!(arg)->IsObject()) { \
+    env->ThrowError( \
+      "expected argument " #arg " to be a connection object");  return safeV8::Done; \
+  } \
+  node_dtrace_connection_t conn; \
+  Local<Object> _##conn = Local<Object>::Cast(arg); \
+  Local<Value> _handle = \
+      (_##conn)->Get(FIXED_ONE_BYTE_STRING(env->isolate(), "_handle")); \
+  if (_handle->IsObject()) { \
+    SLURP_INT_SAFE(_handle.As<Object>(), fd, &conn.fd); \
+  } else { \
+    conn.fd = -1; \
+  } \
+  SLURP_STRING_SAFE(_##conn, remoteAddress, &conn.remote); \
+  SLURP_INT_SAFE(_##conn, remotePort, &conn.port); \
+  SLURP_INT_SAFE(_##conn, bufferSize, &conn.buffered);
 
 #define SLURP_CONNECTION_HTTP_CLIENT(arg, conn) \
   if (!(arg)->IsObject()) { \
@@ -162,7 +198,7 @@ Local<Value> strfwdfor = headers_envx_forwarded_string;
   if (!strfwdfor->IsString() || (req.forwardedFor = *fwdfor) == nullptr)
     req.forwardedFor = const_cast<char*>("");
 
-  SLURP_CONNECTION(args[1], conn);
+  SLURP_CONNECTION_SAFE(args[1], conn);
   NODE_HTTP_SERVER_REQUEST(&req, &conn, conn.remote, conn.port, req.method, req.url, conn.fd);
 
   return safeV8::Done;

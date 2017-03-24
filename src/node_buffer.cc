@@ -22,10 +22,23 @@
     if (!(r)) return env->ThrowRangeError("out of range index");            \
   } while (0)
 
+#define THROW_AND_RETURN_IF_OOB_SAFE(r)                                          \
+  do {                                                                      \
+    if (!(r)) { env->ThrowRangeError("out of range index"); return  safeV8::Done;}           \
+  } while (0)
+
+
 #define THROW_AND_RETURN_UNLESS_BUFFER(env, obj)                            \
   do {                                                                      \
     if (!HasInstance(obj))                                                  \
       return env->ThrowTypeError("argument should be a Buffer");            \
+  } while (0)
+
+#define THROW_AND_RETURN_UNLESS_BUFFER_SAFE(env, obj)                            \
+  do {                                                                      \
+    if (!HasInstance(obj))                                                  \
+      env->ThrowTypeError("argument should be a Buffer");            \
+      return  safeV8::Done;                                             \
   } while (0)
 
 #define SPREAD_ARG(val, name)                                                 \
@@ -552,8 +565,8 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
   .OnVal([&](Local<Object> args0) -> safeV8::SafeV8Promise_Base {
   Environment* env = Environment::GetCurrent(args);
 
-  THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
-  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  THROW_AND_RETURN_UNLESS_BUFFER_SAFE(env, args.This());
+  THROW_AND_RETURN_UNLESS_BUFFER_SAFE(env, args[0]);
   Local<Object> target_obj = args0;
   SPREAD_ARG(args.This(), ts_obj);
   SPREAD_ARG(target_obj, target);
@@ -562,9 +575,9 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
   size_t source_start;
   size_t source_end;
 
-  THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[1], 0, &target_start));
-  THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[2], 0, &source_start));
-  THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[3], ts_obj_length, &source_end));
+  THROW_AND_RETURN_IF_OOB_SAFE(ParseArrayIndex(args[1], 0, &target_start));
+  THROW_AND_RETURN_IF_OOB_SAFE(ParseArrayIndex(args[2], 0, &source_start));
+  THROW_AND_RETURN_IF_OOB_SAFE(ParseArrayIndex(args[3], ts_obj_length, &source_end));
 
   // Copy 0 bytes; we're done
   if (target_start >= target_length || source_start >= source_end)
@@ -714,7 +727,7 @@ env->ThrowTypeError("Invalid hex string");
   size_t offset;
   size_t max_length;
 
-  THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[1], 0, &offset));
+  THROW_AND_RETURN_IF_OOB_SAFE(ParseArrayIndex(args[1], 0, &offset));
   if (offset > ts_obj_length)
         {
 env->ThrowRangeError("Offset is out of bounds");
@@ -722,7 +735,7 @@ env->ThrowRangeError("Offset is out of bounds");
     }
 
 
-  THROW_AND_RETURN_IF_OOB(ParseArrayIndex(args[2], ts_obj_length - offset,
+  THROW_AND_RETURN_IF_OOB_SAFE(ParseArrayIndex(args[2], ts_obj_length - offset,
                                           &max_length));
 
   max_length = MIN(ts_obj_length - offset, max_length);
@@ -844,7 +857,7 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   bool should_assert = args.Length() < 4;
 
   if (should_assert) {
-    THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+    THROW_AND_RETURN_UNLESS_BUFFER_SAFE(env, args[0]);
   }
 
   Local<Uint8Array> ts_obj = args0;
@@ -862,8 +875,8 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   size_t memcpy_num = sizeof(T);
 
   if (should_assert) {
-    THROW_AND_RETURN_IF_OOB(offset + memcpy_num >= memcpy_num);
-    THROW_AND_RETURN_IF_OOB(offset + memcpy_num <= ts_obj_length);
+    THROW_AND_RETURN_IF_OOB_SAFE(offset + memcpy_num >= memcpy_num);
+    THROW_AND_RETURN_IF_OOB_SAFE(offset + memcpy_num <= ts_obj_length);
   }
 
   if (offset + memcpy_num > ts_obj_length)

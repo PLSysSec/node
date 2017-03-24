@@ -1057,24 +1057,26 @@ static bool ShouldAbortOnUncaughtException(Isolate* isolate) {
 
 void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
   v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
-  
-    safeV8::Get(isolate, process_object,tick_callback_function_key)
-  .OnVal([&](Local<Value> process_object_tick_callback_function_key)-> safeV8::SafeV8Promise_Base {
-{
-    bool safeV8_Failed4 = false;
-    Local<Value> safeV8_exceptionThrown4;
-safeV8::With(isolate, process_object_tick_callback_function_key)
-  .OnVal([&](Local<Function> process_objectGettick_callback_function_key) -> safeV8::SafeV8Promise_Base {
+
   Environment* env = Environment::GetCurrent(args);
 
   if (env->using_domains())
-    return safeV8::Done;
+    return;
   env->set_using_domains(true);
 
   HandleScope scope(env->isolate());
   Local<Object> process_object = env->process_object();
 
   Local<String> tick_callback_function_key = env->tick_domain_cb_string();
+
+  safeV8::Get(isolate, process_object, tick_callback_function_key)
+    .OnVal([&](Local<Value> process_object_tick_callback_function_key)-> safeV8::SafeV8Promise_Base {
+      {
+        bool safeV8_Failed4 = false;
+        Local<Value> safeV8_exceptionThrown4;
+        safeV8::With(isolate, process_object_tick_callback_function_key)
+          .OnVal([&](Local<Function> process_objectGettick_callback_function_key) -> safeV8::SafeV8Promise_Base {
+
   Local<Function> tick_callback_function =
       process_objectGettick_callback_function_key;
 

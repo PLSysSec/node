@@ -204,6 +204,7 @@
         'src/node_wrap.h',
         'src/node_revert.h',
         'src/node_i18n.h',
+        'src/safe_v8.h',
         'src/pipe_wrap.h',
         'src/tty_wrap.h',
         'src/tcp_wrap.h',

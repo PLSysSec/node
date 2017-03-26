@@ -3,7 +3,7 @@ const binding = process.binding('buffer');
 const v8 = require('v8');
 
 var bench = common.createBenchmark(main, {
-  type: ['testNoOpOriginal',
+  type: [//'testNoOpOriginal',
          'testNoOpOriginalCorrected',
 	 'testNoOpPromise'],
   millions: [100]

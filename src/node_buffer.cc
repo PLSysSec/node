@@ -1194,6 +1194,17 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 }
 
+void TestNoOpOriginalCorrected(const FunctionCallbackInfo<Value>& args)
+{
+  Local<v8::Number> ret = args[0].As<v8::Number>();
+  args.GetReturnValue().Set(ret);
+}
+
+void TestNoOpPromise(const FunctionCallbackInfo<Value>& args)
+{
+  Local<v8::Number> ret = args[0].As<v8::Number>();
+  args.GetReturnValue().Set(ret);
+}
 
 // pass Buffer object to load prototype methods
 void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
@@ -1261,6 +1272,9 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "swap16", Swap16);
   env->SetMethod(target, "swap32", Swap32);
   env->SetMethod(target, "swap64", Swap64);
+
+  env->SetMethod(target, "testNoOpOriginalCorrected", TestNoOpOriginalCorrected);
+  env->SetMethod(target, "testNoOpPromise", TestNoOpPromise);
 
   target->Set(env->context(),
               FIXED_ONE_BYTE_STRING(env->isolate(), "kMaxLength"),

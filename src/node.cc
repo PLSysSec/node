@@ -2548,20 +2548,19 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
     safeV8::ToString(isolate, args[1])
   .OnVal([&](Local<String> args1_str) -> void {
 errmsg = String::Concat(errmsg, args1_str);
-#endif  // _WIN32
-    env->isolate()->ThrowException(Exception::Error(errmsg));
-    lambdaRetControlFlow0 = 1;return;
-  
-  
 }
 )
   .OnErr([&isolate](Local<Value> exception){
     isolate->ThrowException(exception);
+    lambdaRetControlFlow0 = 1;
   });
 
     if(lambdaRetControlFlow0 == 1) {
          return;
     }
+#endif  // _WIN32
+    env->isolate()->ThrowException(Exception::Error(errmsg));
+    return;
 }
 
   if (mp == nullptr) {

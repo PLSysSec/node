@@ -376,6 +376,22 @@ class fs_req_wrap {
   SYNC_DEST_CALL(func, path, nullptr, __VA_ARGS__)                            \
 
 
+
+#define SYNC_DEST_CALL_SAFE(func, path, dest, ...)                                 \
+  fs_req_wrap req_wrap;                                                       \
+  env->PrintSyncTrace();                                                      \
+  int err = uv_fs_ ## func(env->event_loop(),                                 \
+                         &req_wrap.req,                                       \
+                         __VA_ARGS__,                                         \
+                         nullptr);                                            \
+  if (err < 0) {                                                              \
+    env->ThrowUVException(err, #func, nullptr, path, dest); return safeV8::Done;           \
+  }                                                                           \
+
+#define SYNC_CALL_SAFE(func, path, ...)                                            \
+  SYNC_DEST_CALL_SAFE(func, path, nullptr, __VA_ARGS__)                            \
+
+
 #define SYNC_REQ req_wrap.req
 
 #define SYNC_RESULT err
@@ -1181,7 +1197,7 @@ lambdaRetControlFlow0 = 1;env->ThrowTypeError("Array elements all need to be buf
     return safeV8::Done;
   }
 
-  SYNC_CALL(write, nullptr, fd, *iovs, iovs.length(), pos)
+  SYNC_CALL_SAFE(write, nullptr, fd, *iovs, iovs.length(), pos)
   args.GetReturnValue().Set(SYNC_RESULT);
 return safeV8::Done;
 }

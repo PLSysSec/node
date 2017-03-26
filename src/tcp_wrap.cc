@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "tcp_wrap.h"
 
 #include "connection_wrap.h"
@@ -108,7 +109,9 @@ void TCPWrap::New(const FunctionCallbackInfo<Value>& args) {
   // This constructor should not be exposed to public javascript.
   // Therefore we assert that we are not trying to call this as a
   // normal function.
-  CHECK(args.IsConstructCall());
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
   Environment* env = Environment::GetCurrent(args);
   TCPWrap* wrap;
   if (args.Length() == 0) {
@@ -119,7 +122,9 @@ void TCPWrap::New(const FunctionCallbackInfo<Value>& args) {
   } else {
     UNREACHABLE();
   }
-  CHECK(wrap);
+  if(!(wrap)) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(wrap);");
+  }
 }
 
 
@@ -236,6 +241,7 @@ void TCPWrap::Listen(const FunctionCallbackInfo<Value>& args) {
 
 
 void TCPWrap::Connect(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   TCPWrap* wrap;
@@ -243,11 +249,13 @@ void TCPWrap::Connect(const FunctionCallbackInfo<Value>& args) {
                           args.Holder(),
                           args.GetReturnValue().Set(UV_EBADF));
 
-  CHECK(args[0]->IsObject());
-  CHECK(args[1]->IsString());
-  CHECK(args[2]->IsUint32());
+  
+  
+  
 
-  Local<Object> req_wrap_obj = args[0].As<Object>();
+  return safeV8::With(isolate, args[0], args[1], args[2])
+  .OnVal([&](Local<Object> args0, Local<String> args1, Local<Uint32> args2)  -> void {
+  Local<Object> req_wrap_obj = args0;
   node::Utf8Value ip_address(env->isolate(), args[1]);
   int port = args[2]->Uint32Value();
 
@@ -267,10 +275,17 @@ void TCPWrap::Connect(const FunctionCallbackInfo<Value>& args) {
   }
 
   args.GetReturnValue().Set(err);
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 void TCPWrap::Connect6(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   TCPWrap* wrap;
@@ -278,11 +293,13 @@ void TCPWrap::Connect6(const FunctionCallbackInfo<Value>& args) {
                           args.Holder(),
                           args.GetReturnValue().Set(UV_EBADF));
 
-  CHECK(args[0]->IsObject());
-  CHECK(args[1]->IsString());
-  CHECK(args[2]->IsUint32());
+  
+  
+  
 
-  Local<Object> req_wrap_obj = args[0].As<Object>();
+  return safeV8::With(isolate, args[0], args[1], args[2])
+  .OnVal([&](Local<Object> args0, Local<String> args1, Local<Uint32> args2)  -> void {
+  Local<Object> req_wrap_obj = args0;
   node::Utf8Value ip_address(env->isolate(), args[1]);
   int port = args[2]->Int32Value();
 
@@ -302,6 +319,12 @@ void TCPWrap::Connect6(const FunctionCallbackInfo<Value>& args) {
   }
 
   args.GetReturnValue().Set(err);
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -348,3 +371,4 @@ Local<Object> AddressToJS(Environment* env,
 }  // namespace node
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(tcp_wrap, node::TCPWrap::Initialize)
+#include "safe_v8.h"

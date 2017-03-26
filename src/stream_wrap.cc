@@ -259,7 +259,9 @@ void StreamWrap::SetBlocking(const FunctionCallbackInfo<Value>& args) {
   StreamWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
-  CHECK_GT(args.Length(), 0);
+  if(args.Length() <= 0) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GT(args.Length(),0);");
+  }
   if (!wrap->IsAlive())
     return args.GetReturnValue().Set(UV_EINVAL);
 

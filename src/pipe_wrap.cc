@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "pipe_wrap.h"
 
 #include "async-wrap.h"
@@ -155,15 +156,18 @@ void PipeWrap::Open(const FunctionCallbackInfo<Value>& args) {
 
 
 void PipeWrap::Connect(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   PipeWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
-  CHECK(args[0]->IsObject());
-  CHECK(args[1]->IsString());
+  
+  
 
-  Local<Object> req_wrap_obj = args[0].As<Object>();
+  return safeV8::With(isolate, args[0], args[1])
+  .OnVal([&](Local<Object> args0, Local<String> args1)  -> void {
+  Local<Object> req_wrap_obj = args0;
   node::Utf8Value name(env->isolate(), args[1]);
 
   ConnectWrap* req_wrap =
@@ -175,9 +179,16 @@ void PipeWrap::Connect(const FunctionCallbackInfo<Value>& args) {
   req_wrap->Dispatched();
 
   args.GetReturnValue().Set(0);  // uv_pipe_connect() doesn't return errors.
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 }  // namespace node
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(pipe_wrap, node::PipeWrap::Initialize)
+#include "safe_v8.h"

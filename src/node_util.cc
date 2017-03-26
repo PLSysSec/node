@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "node.h"
 #include "node_watchdog.h"
 #include "v8.h"
@@ -43,16 +44,30 @@ using v8::Value;
 
 static void GetProxyDetails(const FunctionCallbackInfo<Value>& args) {
   // Return undefined if it's not a proxy.
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   if (!args[0]->IsProxy())
     return;
 
   Local<Proxy> proxy = args[0].As<Proxy>();
 
   Local<Array> ret = Array::New(args.GetIsolate(), 2);
-  ret->Set(0, proxy->GetTarget());
-  ret->Set(1, proxy->GetHandler());
+    return safeV8::Set(isolate, ret,0,proxy->GetTarget())
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    return safeV8::Set(isolate, ret,1,proxy->GetHandler())
+  .OnVal([&]() -> void {
+
 
   args.GetReturnValue().Set(ret);
+
+  
+}
+);
+
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 inline Local<Private> IndexToPrivateSymbol(Environment* env, uint32_t index) {
@@ -153,3 +168,4 @@ void Initialize(Local<Object> target,
 }  // namespace node
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(util, node::util::Initialize)
+#include "safe_v8.h"

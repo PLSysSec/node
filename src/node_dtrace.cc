@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "node_dtrace.h"
 
 #ifdef HAVE_DTRACE
@@ -132,6 +133,7 @@ void DTRACE_NET_STREAM_END(const FunctionCallbackInfo<Value>& args) {
 }
 
 void DTRACE_HTTP_SERVER_REQUEST(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   node_dtrace_http_server_request_t req;
 
   if (!NODE_HTTP_SERVER_REQUEST_ENABLED())
@@ -153,7 +155,9 @@ void DTRACE_HTTP_SERVER_REQUEST(const FunctionCallbackInfo<Value>& args) {
       "expected object for request to contain string member headers");
   }
 
-  Local<Value> strfwdfor = headers->Get(env->x_forwarded_string());
+    return safeV8::Get(isolate, headers,env->x_forwarded_string())
+  .OnVal([&](Local<Value> headers_envx_forwarded_string) -> void {
+Local<Value> strfwdfor = headers_envx_forwarded_string;
   node::Utf8Value fwdfor(env->isolate(), strfwdfor);
 
   if (!strfwdfor->IsString() || (req.forwardedFor = *fwdfor) == nullptr)
@@ -161,6 +165,13 @@ void DTRACE_HTTP_SERVER_REQUEST(const FunctionCallbackInfo<Value>& args) {
 
   SLURP_CONNECTION(args[1], conn);
   NODE_HTTP_SERVER_REQUEST(&req, &conn, conn.remote, conn.port, req.method, req.url, conn.fd);
+
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -269,3 +280,4 @@ void InitDTrace(Environment* env, Local<Object> target) {
 }
 
 }  // namespace node
+#include "safe_v8.h"

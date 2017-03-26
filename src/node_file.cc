@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "node.h"
 #include "node_file.h"
 #include "node_buffer.h"
@@ -374,6 +375,7 @@ class fs_req_wrap {
 #define SYNC_CALL(func, path, ...)                                            \
   SYNC_DEST_CALL(func, path, nullptr, __VA_ARGS__)                            \
 
+
 #define SYNC_REQ req_wrap.req
 
 #define SYNC_RESULT err
@@ -532,10 +534,13 @@ Local<Value> BuildStatsObject(Environment* env, const uv_stat_t* s) {
 // a string or undefined when the file cannot be opened.  The speedup
 // comes from not creating Error objects on failure.
 static void InternalModuleReadFile(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
   uv_loop_t* loop = env->event_loop();
 
-  CHECK(args[0]->IsString());
+  
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0)  -> void {
   node::Utf8Value path(env->isolate(), args[0]);
 
   uv_fs_t open_req;
@@ -573,7 +578,10 @@ static void InternalModuleReadFile(const FunctionCallbackInfo<Value>& args) {
   }
 
   uv_fs_t close_req;
-  CHECK_EQ(0, uv_fs_close(loop, &close_req, fd, nullptr));
+  if(0 != uv_fs_close(loop,&close_req,fd,nullptr)) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(0,uv_fs_close(loop,&close_req,fd,nullptr));");
+    return;
+  }
   uv_fs_req_cleanup(&close_req);
 
   size_t start = 0;
@@ -587,15 +595,24 @@ static void InternalModuleReadFile(const FunctionCallbackInfo<Value>& args) {
                           String::kNormalString,
                           chars.size() - start);
   args.GetReturnValue().Set(chars_string);
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 // Used to speed up module loading.  Returns 0 if the path refers to
 // a file, 1 when it's a directory or < 0 on error (usually -ENOENT.)
 // The speedup comes from not creating thousands of Stat and Error objects.
 static void InternalModuleStat(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK(args[0]->IsString());
+  
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0)  -> void {
   node::Utf8Value path(env->isolate(), args[0]);
 
   uv_fs_t req;
@@ -607,6 +624,12 @@ static void InternalModuleStat(const FunctionCallbackInfo<Value>& args) {
   uv_fs_req_cleanup(&req);
 
   args.GetReturnValue().Set(rc);
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 static void Stat(const FunctionCallbackInfo<Value>& args) {
@@ -1031,15 +1054,26 @@ static void Open(const FunctionCallbackInfo<Value>& args) {
 // 4 position  if integer, position to write at in the file.
 //             if null, write from the current position
 static void WriteBuffer(const FunctionCallbackInfo<Value>& args) {
+  
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  return safeV8::With(isolate, args[1])
+  .OnVal([&](Local<Object> args1)  -> void {
   Environment* env = Environment::GetCurrent(args);
 
   if (!args[0]->IsInt32())
-    return env->ThrowTypeError("First argument must be file descriptor");
+        {
+env->ThrowTypeError("First argument must be file descriptor");
+    return;
+    }
 
-  CHECK(Buffer::HasInstance(args[1]));
+
+  if(!(Buffer::HasInstance(args[1]))) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(Buffer::HasInstance(args[1]));");
+    return;
+  }
 
   int fd = args[0]->Int32Value();
-  Local<Object> obj = args[1].As<Object>();
+  Local<Object> obj = args1;
   const char* buf = Buffer::Data(obj);
   size_t buffer_length = Buffer::Length(obj);
   size_t off = args[2]->Uint32Value();
@@ -1048,13 +1082,29 @@ static void WriteBuffer(const FunctionCallbackInfo<Value>& args) {
   Local<Value> req = args[5];
 
   if (off > buffer_length)
-    return env->ThrowRangeError("offset out of bounds");
+        {
+env->ThrowRangeError("offset out of bounds");
+    return;
+    }
+
   if (len > buffer_length)
-    return env->ThrowRangeError("length out of bounds");
+        {
+env->ThrowRangeError("length out of bounds");
+    return;
+    }
+
   if (off + len < off)
-    return env->ThrowRangeError("off + len overflow");
+        {
+env->ThrowRangeError("off + len overflow");
+    return;
+    }
+
   if (!Buffer::IsWithinBounds(off, len, buffer_length))
-    return env->ThrowRangeError("off + len > buffer.length");
+        {
+env->ThrowRangeError("off + len > buffer.length");
+    return;
+    }
+
 
   buf += off;
 
@@ -1067,6 +1117,12 @@ static void WriteBuffer(const FunctionCallbackInfo<Value>& args) {
 
   SYNC_CALL(write, nullptr, fd, &uvbuf, 1, pos)
   args.GetReturnValue().Set(SYNC_RESULT);
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -1078,34 +1134,61 @@ static void WriteBuffer(const FunctionCallbackInfo<Value>& args) {
 // 2 position  if integer, position to write at in the file.
 //             if null, write from the current position
 static void WriteBuffers(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK(args[0]->IsInt32());
-  CHECK(args[1]->IsArray());
+  
+  
 
+  return safeV8::With(isolate, args[0], args[1])
+  .OnVal([&](Local<Int32> args0, Local<Array> args1) -> safeV8::SafeV8Promise_Base {
   int fd = args[0]->Int32Value();
-  Local<Array> chunks = args[1].As<Array>();
+  Local<Array> chunks = args1;
   int64_t pos = GET_OFFSET(args[2]);
   Local<Value> req = args[3];
 
   MaybeStackBuffer<uv_buf_t> iovs(chunks->Length());
 
   for (uint32_t i = 0; i < iovs.length(); i++) {
-    Local<Value> chunk = chunks->Get(i);
+      int lambdaRetControlFlow0 = 0;
+        bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Get(isolate, chunks,i)
+  .OnVal([&](Local<Value> chunks_i) -> void {
+Local<Value> chunk = chunks_i;
 
     if (!Buffer::HasInstance(chunk))
-      return env->ThrowTypeError("Array elements all need to be buffers");
+      {
+lambdaRetControlFlow0 = 1;env->ThrowTypeError("Array elements all need to be buffers");
+    return;
 
-    iovs[i] = uv_buf_init(Buffer::Data(chunk), Buffer::Length(chunk));
-  }
+    
+    }iovs[i] = uv_buf_init(Buffer::Data(chunk), Buffer::Length(chunk));
+  
+  
+}
+)
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+    if(lambdaRetControlFlow0 == 1) {
+         return safeV8::Done;
+    }
+}
 
   if (req->IsObject()) {
     ASYNC_CALL(write, req, UTF8, fd, *iovs, iovs.length(), pos)
-    return;
+    return safeV8::Done;
   }
 
   SYNC_CALL(write, nullptr, fd, *iovs, iovs.length(), pos)
   args.GetReturnValue().Set(SYNC_RESULT);
+return safeV8::Done;
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -1415,7 +1498,9 @@ static void FUTimes(const FunctionCallbackInfo<Value>& args) {
 static void Mkdtemp(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  CHECK_GE(args.Length(), 2);
+  if(args.Length() < 2) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),2);");
+  }
 
   BufferValue tmpl(env->isolate(), args[0]);
   if (*tmpl == nullptr)
@@ -1440,11 +1525,26 @@ static void Mkdtemp(const FunctionCallbackInfo<Value>& args) {
 }
 
 void FSInitialize(const FunctionCallbackInfo<Value>& args) {
-  Local<Function> stats_constructor = args[0].As<Function>();
-  CHECK(stats_constructor->IsFunction());
+  
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Function> args0) -> safeV8::SafeV8Promise_Base {
+  Local<Function> stats_constructor = args0;
+  
 
+  return safeV8::With(isolate, stats_constructor)
+  .OnVal([&](Local<Function> stats_constructor)  -> void {
   Environment* env = Environment::GetCurrent(args);
   env->set_fs_stats_constructor_function(stats_constructor);
+
+}
+);
+return safeV8::Done;
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 void InitFs(Local<Object> target,
@@ -1509,3 +1609,4 @@ void InitFs(Local<Object> target,
 }  // end namespace node
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(fs, node::InitFs)
+#include "safe_v8.h"

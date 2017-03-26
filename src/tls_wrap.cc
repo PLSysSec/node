@@ -846,7 +846,9 @@ void TLSWrap::SetServername(const FunctionCallbackInfo<Value>& args) {
   if (!wrap->is_client())
     return;
 
-  CHECK_NE(wrap->ssl_, nullptr);
+  if(wrap->ssl_ == nullptr) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_NE(wrap->ssl_,nullptr);");
+  }
 
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
   node::Utf8Value servername(env->isolate(), args[0].As<String>());

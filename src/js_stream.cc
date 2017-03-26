@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "js_stream.h"
 
 #include "async-wrap.h"
@@ -113,7 +114,9 @@ void JSStream::New(const FunctionCallbackInfo<Value>& args) {
   // This constructor should not be exposed to public javascript.
   // Therefore we assert that we are not trying to call this as a
   // normal function.
-  CHECK(args.IsConstructCall());
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
   Environment* env = Environment::GetCurrent(args);
   JSStream* wrap;
 
@@ -125,7 +128,9 @@ void JSStream::New(const FunctionCallbackInfo<Value>& args) {
   } else {
     UNREACHABLE();
   }
-  CHECK(wrap);
+  if(!(wrap)) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(wrap);");
+  }
 }
 
 
@@ -161,23 +166,41 @@ void JSStream::DoRead(const FunctionCallbackInfo<Value>& args) {
 
 
 void JSStream::DoAfterWrite(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   JSStream* wrap;
-  CHECK(args[0]->IsObject());
+  
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0)  -> void {
   WriteWrap* w;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
-  ASSIGN_OR_RETURN_UNWRAP(&w, args[0].As<Object>());
+  ASSIGN_OR_RETURN_UNWRAP(&w, args0);
 
   wrap->OnAfterWrite(w);
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 template <class Wrap>
 void JSStream::Finish(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Wrap* w;
-  CHECK(args[0]->IsObject());
-  ASSIGN_OR_RETURN_UNWRAP(&w, args[0].As<Object>());
+  
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0)  -> void {
+  ASSIGN_OR_RETURN_UNWRAP(&w, args0);
 
   w->Done(args[1]->Int32Value());
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -238,3 +261,4 @@ void JSStream::Initialize(Local<Object> target,
 }  // namespace node
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(js_stream, node::JSStream::Initialize)
+#include "safe_v8.h"

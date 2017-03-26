@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "inspector_agent.h"
 
 #include "inspector_socket.h"
@@ -403,20 +404,37 @@ void InspectorConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::Isolate* isolate = info.GetIsolate();
   v8::Local<v8::Context> context = isolate->GetCurrentContext();
 
-  CHECK(info.Data()->IsArray());
-  v8::Local<v8::Array> args = info.Data().As<v8::Array>();
-  CHECK_EQ(args->Length(), 3);
+  
+  return safeV8::With(isolate, info.Data())
+  .OnVal([&](Local<Array> infoData) -> safeV8::SafeV8Promise_Base {
+  v8::Local<v8::Array> args = infoData;
+  if(args->Length() != 3) {
+    Environment::GetCurrent(info)->ThrowTypeError("Failed CHECK_EQ(args->Length(),3);");
+    return safeV8::Done;
+  }
 
-  v8::Local<v8::Value> inspector_method =
-      args->Get(context, 0).ToLocalChecked();
-  CHECK(inspector_method->IsFunction());
-  v8::Local<v8::Value> node_method =
-      args->Get(context, 1).ToLocalChecked();
-  CHECK(node_method->IsFunction());
-  v8::Local<v8::Value> config_value =
-      args->Get(context, 2).ToLocalChecked();
-  CHECK(config_value->IsObject());
-  v8::Local<v8::Object> config_object = config_value.As<v8::Object>();
+    return safeV8::Get(isolate, args,0)
+  .OnVal([&](Local<Value> args_0)-> safeV8::SafeV8Promise_Base {
+v8::Local<v8::Value> inspector_method =
+      args_0;
+  
+  return safeV8::With(isolate, inspector_method)
+  .OnVal([&](Local<Function> inspector_method) -> safeV8::SafeV8Promise_Base {
+    return safeV8::Get(isolate, args,1)
+  .OnVal([&](Local<Value> args_1)-> safeV8::SafeV8Promise_Base {
+v8::Local<v8::Value> node_method =
+      args_1;
+  
+  return safeV8::With(isolate, node_method)
+  .OnVal([&](Local<Function> node_method) -> safeV8::SafeV8Promise_Base {
+    return safeV8::Get(isolate, args,2)
+  .OnVal([&](Local<Value> args_2)-> safeV8::SafeV8Promise_Base {
+v8::Local<v8::Value> config_value =
+      args_2;
+  
+  return safeV8::With(isolate, config_value)
+  .OnVal([&](Local<Object> config_value) -> safeV8::SafeV8Promise_Base {
+  v8::Local<v8::Object> config_object = config_value;
 
   std::vector<v8::Local<v8::Value>> call_args(info.Length());
   for (int i = 0; i < info.Length(); ++i) {
@@ -426,27 +444,62 @@ void InspectorConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::Local<v8::String> in_call_key = OneByteString(isolate, "in_call");
   bool in_call = config_object->Has(context, in_call_key).FromMaybe(false);
   if (!in_call) {
-    CHECK(config_object->Set(context,
-                             in_call_key,
-                             v8::True(isolate)).FromJust());
-    CHECK(!inspector_method.As<v8::Function>()->Call(
+          bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, config_object,in_call_key,v8::True(isolate))
+  .OnVal([&]() -> void {
+
+    CHECK(!inspector_method->Call(
         context,
         info.Holder(),
         call_args.size(),
         call_args.data()).IsEmpty());
-  }
+  
+  
+}
+)
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+}
 
   v8::TryCatch try_catch(info.GetIsolate());
-  static_cast<void>(node_method.As<v8::Function>()->Call(context,
+  static_cast<void>(node_method->Call(context,
                                                          info.Holder(),
                                                          call_args.size(),
                                                          call_args.data()));
-  CHECK(config_object->Delete(context, in_call_key).FromJust());
+  if(!(config_object->Delete(context,in_call_key).FromJust())) {
+    Environment::GetCurrent(info)->ThrowTypeError("Failed CHECK(config_object->Delete(context,in_call_key).FromJust());");
+    return safeV8::Done;
+  }
   if (try_catch.HasCaught())
     try_catch.ReThrow();
+return safeV8::Done;
+}
+);
+
+  return safeV8::Done;
+}
+);
+});
+
+  return safeV8::Done;
+}
+);
+});
+
+  return safeV8::Done;
+}
+);
+return safeV8::Done;
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 void InspectorWrapConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (args.Length() != 3 || !args[0]->IsFunction() ||
@@ -455,12 +508,29 @@ void InspectorWrapConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& args) {
   }
 
   v8::Local<v8::Array> array = v8::Array::New(env->isolate(), args.Length());
-  CHECK(array->Set(env->context(), 0, args[0]).FromJust());
-  CHECK(array->Set(env->context(), 1, args[1]).FromJust());
-  CHECK(array->Set(env->context(), 2, args[2]).FromJust());
+    return safeV8::Set(isolate, array,0,args[0])
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    return safeV8::Set(isolate, array,1,args[1])
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    return safeV8::Set(isolate, array,2,args[2])
+  .OnVal([&]() -> void {
+
   args.GetReturnValue().Set(v8::Function::New(env->context(),
                                               InspectorConsoleCall,
                                               array).ToLocalChecked());
+
+  
+}
+);
+
+  });
+
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 bool AgentImpl::Start(v8::Platform* platform, const char* path,
@@ -872,3 +942,4 @@ void Agent::FatalException(v8::Local<v8::Value> error,
 
 }  // namespace inspector
 }  // namespace node
+#include "safe_v8.h"

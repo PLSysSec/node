@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "node_url.h"
 #include "node.h"
 #include "node_internals.h"
@@ -1324,10 +1325,15 @@ namespace url {
   }
 
   static void EncodeAuthSet(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    CHECK_GE(args.Length(), 1);
-    CHECK(args[0]->IsString());
-    Utf8Value value(env->isolate(), args[0]);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
+    if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+    
+    return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0)  -> void {
+  Utf8Value value(env->isolate(), args[0]);
     std::string output;
     const size_t len = value.length();
     output.reserve(len);
@@ -1339,13 +1345,24 @@ namespace url {
         String::NewFromUtf8(env->isolate(),
                             output.c_str(),
                             v8::NewStringType::kNormal).ToLocalChecked());
-  }
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   static void DomainToASCII(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    CHECK_GE(args.Length(), 1);
-    CHECK(args[0]->IsString());
-    Utf8Value value(env->isolate(), args[0]);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
+    if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+    
+    return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0)  -> void {
+  Utf8Value value(env->isolate(), args[0]);
 
     url_host host{{""}, HOST_TYPE_DOMAIN};
     ParseHost(&host, *value, value.length());
@@ -1359,13 +1376,24 @@ namespace url {
         String::NewFromUtf8(env->isolate(),
                             out.c_str(),
                             v8::NewStringType::kNormal).ToLocalChecked());
-  }
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   static void DomainToUnicode(const FunctionCallbackInfo<Value>& args) {
-    Environment* env = Environment::GetCurrent(args);
-    CHECK_GE(args.Length(), 1);
-    CHECK(args[0]->IsString());
-    Utf8Value value(env->isolate(), args[0]);
+    v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  Environment* env = Environment::GetCurrent(args);
+    if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+    
+    return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0)  -> void {
+  Utf8Value value(env->isolate(), args[0]);
 
     url_host host{{""}, HOST_TYPE_DOMAIN};
     ParseHost(&host, *value, value.length(), true);
@@ -1379,7 +1407,13 @@ namespace url {
         String::NewFromUtf8(env->isolate(),
                             out.c_str(),
                             v8::NewStringType::kNormal).ToLocalChecked());
-  }
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   static void Init(Local<Object> target,
                    Local<Value> unused,
@@ -1404,3 +1438,4 @@ namespace url {
 }  // namespace node
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(url, node::url::Init)
+#include "safe_v8.h"

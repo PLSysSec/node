@@ -89,7 +89,9 @@ void FSEventWrap::Start(const FunctionCallbackInfo<Value>& args) {
 
   FSEventWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
-  CHECK_EQ(wrap->initialized_, false);
+  if(wrap->initialized_ != false) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(wrap->initialized_,false);");
+  }
 
   static const char kErrMsg[] = "filename must be a string or Buffer";
   if (args.Length() < 1)

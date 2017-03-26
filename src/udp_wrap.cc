@@ -122,7 +122,9 @@ void UDPWrap::Initialize(Local<Object> target,
 
 
 void UDPWrap::New(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args.IsConstructCall());
+  if(!(args.IsConstructCall())) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(args.IsConstructCall());");
+  }
   Environment* env = Environment::GetCurrent(args);
   if (args.Length() == 0) {
     new UDPWrap(env, args.This(), nullptr);

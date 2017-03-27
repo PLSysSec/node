@@ -35,7 +35,7 @@
 #define THROW_AND_RETURN_IF_OOB_SAFE(isolate, r)                            \
   do {                                                                      \
     if (!(r))                                                               \
-      return safeV8::Err(isolate, "out of range index",                     \
+      return safeV8::safeV8Err(isolate, "out of range index",               \
         v8::Exception::RangeError);                                         \
   } while (0)
 
@@ -57,15 +57,15 @@
     CHECK_NE(name##_data, nullptr);
 
 #define SPREAD_ARG_SAFE(isolate, val, name, block)                                \
-  safeV8::With(isolate, val)                                                      \
-    .OnVal([&](Local<Uint8Array> name) -> safeV8::SafeV8Promise_Base {            \
+  safeV8::marshal(isolate, val)                                                   \
+    .onVal([&](Local<Uint8Array> name) -> safeV8::SafeV8Promise_Base {            \
       ArrayBuffer::Contents name##_c = name->Buffer()->GetContents();             \
       const size_t name##_offset = name->ByteOffset();                            \
       const size_t name##_length = name->ByteLength();                            \
       char* const name##_data =                                                   \
           static_cast<char*>(name##_c.Data()) + name##_offset;                    \
       if (name##_length > 0 && name##_data == nullptr){                           \
-        return safeV8::Err(isolate, "SPREAD ARGS FAILED");                        \
+        return safeV8::safeV8Err(isolate, "SPREAD ARGS FAILED");                  \
       }                                                                           \
       block                                                                       \
     })
@@ -505,15 +505,15 @@ void CreateFromString(const FunctionCallbackInfo<Value>& args) {
 
 #elif B_SAFE_R == 2
 
-  return safeV8::With(isolate, args[0], args[1])
-  .OnVal([&] (Local<String> stringBuf, Local<String> encoding) {
+  return safeV8::marshal(isolate, args[0], args[1])
+  .onVal([&] (Local<String> stringBuf, Local<String> encoding) {
 
     enum encoding enc = ParseEncoding(args.GetIsolate(), encoding, UTF8);
     Local<Object> buf;
     if (New(args.GetIsolate(), stringBuf, enc).ToLocal(&buf))
       args.GetReturnValue().Set(buf);
 
-  }).OnErr([&isolate] (Local<Value> exception) {
+  }).onFail([&isolate] (Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 
@@ -561,7 +561,7 @@ void StringSlice(const FunctionCallbackInfo<Value>& args) {
 
     return safeV8::Done;
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -689,8 +689,8 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
   THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
 
-  return safeV8::With(isolate, args[0])
-  .OnVal([&](Local<Object> target_obj) {
+  return safeV8::marshal(isolate, args[0])
+  .onVal([&](Local<Object> target_obj) {
 
     return SPREAD_ARG_SAFE(isolate, args.This(), ts_obj, {
       return SPREAD_ARG_SAFE(isolate, target_obj, target, {
@@ -710,7 +710,7 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
         }
 
         if (source_start > ts_obj_length) {
-          return safeV8::Err(isolate, "out of range index", v8::Exception::RangeError);
+          return safeV8::safeV8Err(isolate, "out of range index", v8::Exception::RangeError);
         }
 
         if (source_end - source_start > target_length - target_start)
@@ -727,7 +727,7 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
       });
     });
   })
-  .OnErr([&](Local<Value> exception) {
+  .onFail([&](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -864,15 +864,15 @@ safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& a
 {
   if (!args[1]->IsString())
   {
-    return safeV8::WithCoerce(isolate, args[1])
-    .OnVal([&](uint32_t value) {
+    return safeV8::implicitCoerce(isolate, args[1])
+    .onVal([&](uint32_t value) {
       memset(ts_obj_data + start, value, fill_length);
     });
   }
   else
   {
-    return safeV8::ToString(isolate, args[1])
-    .OnVal([&](Local<String> str_obj) {
+    return safeV8::toString(isolate, args[1])
+    .onVal([&](Local<String> str_obj) {
 
       enum encoding enc = ParseEncoding(isolate, args[4], UTF8);
       size_t str_length =
@@ -880,7 +880,7 @@ safeV8::SafeV8Promise_Base FillWithNoBuffer(const FunctionCallbackInfo<Value>& a
         enc == UCS2 ? str_obj->Length() * sizeof(uint16_t) : str_obj->Length();
 
       if (enc == HEX && str_length % 2 != 0)
-        return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
+        return safeV8::safeV8Err(isolate, "Invalid hex string", v8::Exception::TypeError);
 
       if (str_length == 0)
         return safeV8::Done;
@@ -928,11 +928,11 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
 
-    return safeV8::WithCoerce(isolate, args[2])
-    .OnVal([&](uint32_t start) {
+    return safeV8::implicitCoerce(isolate, args[2])
+    .onVal([&](uint32_t start) {
 
-      return safeV8::WithCoerce(isolate, args[3])
-      .OnVal([&](uint32_t end) {
+      return safeV8::implicitCoerce(isolate, args[3])
+      .onVal([&](uint32_t end) {
 
         size_t fill_length = end - start;
         THROW_AND_RETURN_IF_OOB_SAFE(isolate, start <= end);
@@ -950,7 +950,7 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
     });
 
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -1009,13 +1009,13 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
   return SPREAD_ARG_SAFE(isolate, args.This(), ts_obj, {
 
     if (!args[0]->IsString())
-      return safeV8::Err(isolate, "Argument must be a string", v8::Exception::TypeError);
+      return safeV8::safeV8Err(isolate, "Argument must be a string", v8::Exception::TypeError);
 
-    return safeV8::ToString(isolate, args[0])
-    .OnVal([&](Local<String> str) {
+    return safeV8::toString(isolate, args[0])
+    .onVal([&](Local<String> str) {
 
       if (encoding == HEX && str->Length() % 2 != 0)
-        return safeV8::Err(isolate, "Invalid hex string", v8::Exception::TypeError);
+        return safeV8::safeV8Err(isolate, "Invalid hex string", v8::Exception::TypeError);
 
       size_t offset;
       size_t max_length;
@@ -1023,7 +1023,7 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
       THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[1], 0, &offset));
 
       if (offset > ts_obj_length)
-        return safeV8::Err(isolate, "Offset is out of bounds", v8::Exception::RangeError);
+        return safeV8::safeV8Err(isolate, "Offset is out of bounds", v8::Exception::RangeError);
 
       THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[2], ts_obj_length - offset, &max_length));
       max_length = MIN(ts_obj_length - offset, max_length);
@@ -1045,7 +1045,7 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
 
     });
   })
-  .OnErr([&](Local<Value> exception) {
+  .onFail([&](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -1124,11 +1124,11 @@ void ReadFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
 
   return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
-    return safeV8::With(isolate, args[1])
-    .OnVal([&](uint32_t offset) {
+    return safeV8::marshal(isolate, args[1])
+    .onVal([&](uint32_t offset) {
 
       if ((offset + sizeof(T)) > ts_obj_length) {
-        return safeV8::Err(isolate, "(offset + sizeof(T)) <= ts_obj_length");
+        return safeV8::safeV8Err(isolate, "(offset + sizeof(T)) <= ts_obj_length");
       }
 
       union NoAlias {
@@ -1146,7 +1146,7 @@ void ReadFloatGeneric(const FunctionCallbackInfo<Value>& args) {
       return safeV8::Done;
     });
   })
-  .OnErr([&](Local<Value> exception) {
+  .onFail([&](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -1230,8 +1230,8 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
     THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   }
 
-  return safeV8::With(isolate, args[0])
-  .OnVal([&](Local<Uint8Array> ts_obj) {
+  return safeV8::marshal(isolate, args[0])
+  .onVal([&](Local<Uint8Array> ts_obj) {
 
     ArrayBuffer::Contents ts_obj_c = ts_obj->Buffer()->GetContents();
     const size_t ts_obj_offset = ts_obj->ByteOffset();
@@ -1240,7 +1240,7 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
       static_cast<char*>(ts_obj_c.Data()) + ts_obj_offset;
     if (ts_obj_length > 0) {
       if (ts_obj_data == nullptr) {
-        return safeV8::Err(isolate, "ts_obj_data = nullptr");
+        return safeV8::safeV8Err(isolate, "ts_obj_data = nullptr");
       }
     }
 
@@ -1270,7 +1270,7 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
 
     return safeV8::Done;
   })
-  .OnErr([&](Local<Value> exception) {
+  .onFail([&](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -1308,12 +1308,12 @@ void ByteLengthUtf8(const FunctionCallbackInfo<Value> &args) {
 #if B_SAFE_R == 2
   Isolate* isolate = args.GetIsolate();
 
-  return safeV8::With(isolate, args[0])
-    .OnVal([&](Local<String> val) {
+  return safeV8::marshal(isolate, args[0])
+    .onVal([&](Local<String> val) {
       // Fast case: avoid StringBytes on UTF8 string. Jump to v8.
       args.GetReturnValue().Set(val->Utf8Length());
     })
-    .OnErr([&](Local<Value> exception) {
+    .onFail([&](Local<Value> exception) {
       isolate->ThrowException(exception);
     });
 #endif
@@ -1400,10 +1400,10 @@ void CompareOffset(const FunctionCallbackInfo<Value> &args) {
       THROW_AND_RETURN_IF_OOB_SAFE(isolate, ParseArrayIndex(args[5], ts_obj_length, &source_end));
 
       if (source_start > ts_obj_length || target_start > target_length)
-        return safeV8::Err(isolate, "out of range index", v8::Exception::RangeError);
+        return safeV8::safeV8Err(isolate, "out of range index", v8::Exception::RangeError);
 
       if (source_start >= source_end || target_start >= target_end)
-        return safeV8::Err(isolate, "Failed : source_start >= source_end || target_start >= target_end");
+        return safeV8::safeV8Err(isolate, "Failed : source_start >= source_end || target_start >= target_end");
 
       size_t to_cmp = MIN(MIN(source_end - source_start,
         target_end - target_start),
@@ -1420,7 +1420,7 @@ void CompareOffset(const FunctionCallbackInfo<Value> &args) {
       return safeV8::Done;
     });
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -1465,7 +1465,7 @@ void Compare(const FunctionCallbackInfo<Value> &args) {
       return safeV8::Done;
     });
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -1624,8 +1624,8 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
 
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
 
-  return safeV8::With(isolate, args[1], args[2], args[4])
-  .OnVal([&](Local<String> needle, int64_t offset_i64, bool is_forward) {
+  return safeV8::marshal(isolate, args[1], args[2], args[4])
+  .onVal([&](Local<String> needle, int64_t offset_i64, bool is_forward) {
 
     return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
 
@@ -1739,7 +1739,7 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
       return safeV8::Done;
     });
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -1823,8 +1823,8 @@ void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[1]);
 
-  return safeV8::With(isolate, args[2], args[4])
-    .OnVal([&](int64_t offset_i64, bool is_forward) {
+  return safeV8::marshal(isolate, args[2], args[4])
+    .onVal([&](int64_t offset_i64, bool is_forward) {
 
     return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
       return SPREAD_ARG_SAFE(isolate, args[1], buf,{
@@ -1891,7 +1891,7 @@ void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
       });
     });
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -1937,11 +1937,11 @@ void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
 
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
 
-  return safeV8::With(isolate, args[2], args[3])
-  .OnVal([&](int64_t offset_i64, bool is_forward) -> safeV8::SafeV8Promise_Base {
+  return safeV8::marshal(isolate, args[2], args[3])
+  .onVal([&](int64_t offset_i64, bool is_forward) -> safeV8::SafeV8Promise_Base {
     
-    return safeV8::WithCoerce(isolate, args[1])
-    .OnVal([&](uint32_t needle) {
+    return safeV8::implicitCoerce(isolate, args[1])
+    .onVal([&](uint32_t needle) {
 
       return SPREAD_ARG_SAFE(isolate, args[0], ts_obj, {
 
@@ -1972,7 +1972,7 @@ void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
       });
     });
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -2016,7 +2016,7 @@ void Swap16(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(args[0]);
     return safeV8::Done;
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -2031,7 +2031,7 @@ void Swap32(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(args[0]);
     return safeV8::Done;
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -2046,7 +2046,7 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(args[0]);
     return safeV8::Done;
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }
@@ -2080,12 +2080,12 @@ void TestNoOpPromise(const FunctionCallbackInfo<Value>& args)
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = env->isolate();
 
-  return safeV8::With(isolate, args[0])
-    .OnVal([&](Local<Number> ret) {
+  return safeV8::marshal(isolate, args[0])
+    .onVal([&](Local<Number> ret) {
     args.GetReturnValue().Set(ret);
   })
-  .OnErr([&](Local<Value> exception) {
-    isolate->ThrowException(safeV8::V8Err(isolate, "Should not be here!!!", v8::Exception::TypeError));
+  .onFail([&](Local<Value> exception) {
+    isolate->ThrowException(safeV8::v8Err(isolate, "Should not be here!!!", v8::Exception::TypeError));
   });
 }
 
@@ -2153,7 +2153,7 @@ void TestNoOpOriginalCorrected_Get(const FunctionCallbackInfo<Value>& args)
     args.GetReturnValue().Set(ret);
   }
   else {
-    isolate->ThrowException(safeV8::V8Err(isolate, "Invalid type", v8::Exception::TypeError));
+    isolate->ThrowException(safeV8::v8Err(isolate, "Invalid type", v8::Exception::TypeError));
   }
 }
 
@@ -2164,12 +2164,12 @@ void TestNoOpPromise_Get(const FunctionCallbackInfo<Value>& args)
 
   Local<Object> a1 = args[0].As<Object>();
 
-  return safeV8::Get(isolate, a1, 0)
-  .OnVal([&](Local<Value> ret) {
+  return safeV8::getProp(isolate, a1, 0)
+  .onVal([&](Local<Value> ret) {
     args.GetReturnValue().Set(ret);
   })
-    .OnErr([&](Local<Value> exception) {
-    isolate->ThrowException(safeV8::V8Err(isolate, "Invalid type", v8::Exception::TypeError));
+    .onFail([&](Local<Value> exception) {
+    isolate->ThrowException(safeV8::v8Err(isolate, "Invalid type", v8::Exception::TypeError));
   });
 }
 
@@ -2215,10 +2215,9 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
 void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = env->isolate();
-  Local<Context> context = env->context();
 
-  return safeV8::With(isolate, args[0])
-  .OnVal([&](Local<Object> proto) -> safeV8::SafeV8Promise_Base {
+  return safeV8::marshal(isolate, args[0])
+  .onVal([&](Local<Object> proto) -> safeV8::SafeV8Promise_Base {
 
     env->set_buffer_prototype_object(proto);
 
@@ -2239,21 +2238,21 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
     env->SetMethod(proto, "copy", Copy);
 
     if (auto zero_fill_field = env->isolate_data()->zero_fill_field()) {
-      return safeV8::With(isolate, args[1])
-      .OnVal([&](Local<Object> binding_object) {
+      return safeV8::marshal(isolate, args[1])
+      .onVal([&](Local<Object> binding_object) {
         auto array_buffer = ArrayBuffer::New(env->isolate(),
           zero_fill_field,
           sizeof(*zero_fill_field));
         auto name = FIXED_ONE_BYTE_STRING(env->isolate(), "zeroFill");
         auto value = Uint32Array::New(array_buffer, 0, 1);
 
-        return safeV8::Set(isolate, binding_object, name, value);
+        return safeV8::setProp(isolate, binding_object, name, value);
       });
     }
 
     return safeV8::Done;
   })
-  .OnErr([&isolate](Local<Value> exception) {
+  .onFail([&isolate](Local<Value> exception) {
     isolate->ThrowException(exception);
   });
 }

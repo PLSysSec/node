@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "node.h"
 #include "node_internals.h"
 #include "node_watchdog.h"

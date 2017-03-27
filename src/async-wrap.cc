@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "async-wrap.h"
 #include "async-wrap-inl.h"
 #include "env.h"
@@ -119,6 +120,7 @@ static void DisableHooksJS(const FunctionCallbackInfo<Value>& args) {
 
 
 static void SetupHooks(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   if (env->async_hooks()->callbacks_enabled())
@@ -128,21 +130,25 @@ static void SetupHooks(const FunctionCallbackInfo<Value>& args) {
 
   Local<Object> fn_obj = args[0].As<Object>();
 
-  Local<Value> init_v = fn_obj->Get(
-      env->context(),
-      FIXED_ONE_BYTE_STRING(env->isolate(), "init")).ToLocalChecked();
-  Local<Value> pre_v = fn_obj->Get(
-      env->context(),
-      FIXED_ONE_BYTE_STRING(env->isolate(), "pre")).ToLocalChecked();
-  Local<Value> post_v = fn_obj->Get(
-      env->context(),
-      FIXED_ONE_BYTE_STRING(env->isolate(), "post")).ToLocalChecked();
-  Local<Value> destroy_v = fn_obj->Get(
-      env->context(),
-      FIXED_ONE_BYTE_STRING(env->isolate(), "destroy")).ToLocalChecked();
+    return safeV8::Get(isolate, fn_obj,FIXED_ONE_BYTE_STRING(env->isolate(),"init"))
+  .OnVal([&](Local<Value> fn_obj_FIXED_ONE_BYTE_STRINGenvisolateinit)-> safeV8::SafeV8Promise_Base {
+Local<Value> init_v = fn_obj_FIXED_ONE_BYTE_STRINGenvisolateinit;
+    return safeV8::Get(isolate, fn_obj,FIXED_ONE_BYTE_STRING(env->isolate(),"pre"))
+  .OnVal([&](Local<Value> fn_obj_FIXED_ONE_BYTE_STRINGenvisolatepre)-> safeV8::SafeV8Promise_Base {
+Local<Value> pre_v = fn_obj_FIXED_ONE_BYTE_STRINGenvisolatepre;
+    return safeV8::Get(isolate, fn_obj,FIXED_ONE_BYTE_STRING(env->isolate(),"post"))
+  .OnVal([&](Local<Value> fn_obj_FIXED_ONE_BYTE_STRINGenvisolatepost)-> safeV8::SafeV8Promise_Base {
+Local<Value> post_v = fn_obj_FIXED_ONE_BYTE_STRINGenvisolatepost;
+    return safeV8::Get(isolate, fn_obj,FIXED_ONE_BYTE_STRING(env->isolate(),"destroy"))
+  .OnVal([&](Local<Value> fn_obj_FIXED_ONE_BYTE_STRINGenvisolatedestroy) -> void {
+Local<Value> destroy_v = fn_obj_FIXED_ONE_BYTE_STRINGenvisolatedestroy;
 
   if (!init_v->IsFunction())
-    return env->ThrowTypeError("init callback must be a function");
+        {
+env->ThrowTypeError("init callback must be a function");
+    return;
+    }
+
 
   env->set_async_hooks_init_function(init_v.As<Function>());
 
@@ -152,6 +158,25 @@ static void SetupHooks(const FunctionCallbackInfo<Value>& args) {
     env->set_async_hooks_post_function(post_v.As<Function>());
   if (destroy_v->IsFunction())
     env->set_async_hooks_destroy_function(destroy_v.As<Function>());
+
+  
+}
+);
+
+  return safeV8::Done;
+}
+);
+
+  return safeV8::Done;
+}
+);
+
+  return safeV8::Done;
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 

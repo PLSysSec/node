@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 /*
  * notes: by srl295
  *  - When in NODE_HAVE_SMALL_ICU mode, ICU is linked against "stub" (null) data
@@ -148,15 +149,21 @@ int32_t ToASCII(MaybeStackBuffer<char>* buf,
 }
 
 static void ToUnicode(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
-  CHECK_GE(args.Length(), 1);
-  CHECK(args[0]->IsString());
+  if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+  
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0)  -> void {
   Utf8Value val(env->isolate(), args[0]);
   MaybeStackBuffer<char> buf;
   int32_t len = ToUnicode(&buf, *val, val.length());
 
   if (len < 0) {
-    return env->ThrowError("Cannot convert name to Unicode");
+    env->ThrowError("Cannot convert name to Unicode");
+    return;
   }
 
   args.GetReturnValue().Set(
@@ -164,18 +171,30 @@ static void ToUnicode(const FunctionCallbackInfo<Value>& args) {
                           *buf,
                           v8::NewStringType::kNormal,
                           len).ToLocalChecked());
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 static void ToASCII(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
-  CHECK_GE(args.Length(), 1);
-  CHECK(args[0]->IsString());
+  if(args.Length() < 1) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_GE(args.Length(),1);");
+  }
+  
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<String> args0)  -> void {
   Utf8Value val(env->isolate(), args[0]);
   MaybeStackBuffer<char> buf;
   int32_t len = ToASCII(&buf, *val, val.length());
 
   if (len < 0) {
-    return env->ThrowError("Cannot convert name to ASCII");
+    env->ThrowError("Cannot convert name to ASCII");
+    return;
   }
 
   args.GetReturnValue().Set(
@@ -183,6 +202,12 @@ static void ToASCII(const FunctionCallbackInfo<Value>& args) {
                           *buf,
                           v8::NewStringType::kNormal,
                           len).ToLocalChecked());
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 void Init(Local<Object> target,

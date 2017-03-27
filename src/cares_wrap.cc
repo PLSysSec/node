@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #define CARES_STATICLIB
 #include "ares.h"
 #include "async-wrap.h"

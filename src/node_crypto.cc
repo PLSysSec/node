@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "node.h"
 #include "node_buffer.h"
 #include "node_crypto.h"
@@ -3128,6 +3129,7 @@ void Connection::GetServername(const FunctionCallbackInfo<Value>& args) {
 
 
 void Connection::SetSNICallback(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Connection* conn;
   ASSIGN_OR_RETURN_UNWRAP(&conn, args.Holder());
   Environment* env = conn->env();
@@ -3137,8 +3139,17 @@ void Connection::SetSNICallback(const FunctionCallbackInfo<Value>& args) {
   }
 
   Local<Object> obj = Object::New(env->isolate());
-  obj->Set(FIXED_ONE_BYTE_STRING(args.GetIsolate(), "onselect"), args[0]);
+    return safeV8::Set(isolate, obj,FIXED_ONE_BYTE_STRING(args.GetIsolate(),"onselect"),args[0])
+  .OnVal([&]() -> void {
+
   conn->sniObject_.Reset(args.GetIsolate(), obj);
+
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 #endif
 
@@ -3163,7 +3174,9 @@ void CipherBase::Initialize(Environment* env, Local<Object> target) {
 
 
 void CipherBase::New(const FunctionCallbackInfo<Value>& args) {
-  CHECK_EQ(args.IsConstructCall(), true);
+  if(args.IsConstructCall() != true) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_EQ(args.IsConstructCall(),true);");
+  }
   CipherKind kind = args[0]->IsTrue() ? kCipher : kDecipher;
   Environment* env = Environment::GetCurrent(args);
   new CipherBase(env, args.This(), kind);
@@ -3352,18 +3365,32 @@ bool CipherBase::SetAuthTag(const char* data, unsigned int len) {
 
 
 void CipherBase::SetAuthTag(const FunctionCallbackInfo<Value>& args) {
+  
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0)  -> void {
   Environment* env = Environment::GetCurrent(args);
 
-  Local<Object> buf = args[0].As<Object>();
+  Local<Object> buf = args0;
 
   if (!buf->IsObject() || !Buffer::HasInstance(buf))
-    return env->ThrowTypeError("Auth tag must be a Buffer");
+        {
+env->ThrowTypeError("Auth tag must be a Buffer");
+    return;
+    }
+
 
   CipherBase* cipher;
   ASSIGN_OR_RETURN_UNWRAP(&cipher, args.Holder());
 
   if (!cipher->SetAuthTag(Buffer::Data(buf), Buffer::Length(buf)))
     env->ThrowError("Attempting to set auth tag in unsupported state");
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -3453,7 +3480,9 @@ void CipherBase::Update(const FunctionCallbackInfo<Value>& args) {
                             "Trying to add data in unsupported state");
   }
 
-  CHECK(out != nullptr || out_len == 0);
+  if(!(out!=nullptr||out_len==0)) {
+    return Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK(out!=nullptr||out_len==0);");
+  }
   Local<Object> buf =
       Buffer::Copy(env, reinterpret_cast<char*>(out), out_len).ToLocalChecked();
   if (out)
@@ -3645,6 +3674,7 @@ bool Hmac::HmacDigest(unsigned char** md_value, unsigned int* md_len) {
 
 
 void Hmac::HmacDigest(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   Hmac* hmac;
@@ -3652,10 +3682,19 @@ void Hmac::HmacDigest(const FunctionCallbackInfo<Value>& args) {
 
   enum encoding encoding = BUFFER;
   if (args.Length() >= 1) {
-    encoding = ParseEncoding(env->isolate(),
-                             args[0]->ToString(env->isolate()),
+      safeV8::ToString(isolate, args[0])
+  .OnVal([&](Local<String> args0_str) -> void {
+encoding = ParseEncoding(env->isolate(),
+                             args0_str,
                              BUFFER);
-  }
+  
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   unsigned char* md_value = nullptr;
   unsigned int md_len = 0;
@@ -3762,6 +3801,7 @@ void Hash::HashUpdate(const FunctionCallbackInfo<Value>& args) {
 
 
 void Hash::HashDigest(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   Hash* hash;
@@ -3776,10 +3816,19 @@ void Hash::HashDigest(const FunctionCallbackInfo<Value>& args) {
 
   enum encoding encoding = BUFFER;
   if (args.Length() >= 1) {
-    encoding = ParseEncoding(env->isolate(),
-                             args[0]->ToString(env->isolate()),
+      safeV8::ToString(isolate, args[0])
+  .OnVal([&](Local<String> args0_str) -> void {
+encoding = ParseEncoding(env->isolate(),
+                             args0_str,
                              BUFFER);
-  }
+  
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   unsigned char md_value[EVP_MAX_MD_SIZE];
   unsigned int md_len;
@@ -3991,6 +4040,7 @@ SignBase::Error Sign::SignFinal(const char* key_pem,
 
 
 void Sign::SignFinal(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   Sign* sign;
@@ -4002,10 +4052,19 @@ void Sign::SignFinal(const FunctionCallbackInfo<Value>& args) {
   unsigned int len = args.Length();
   enum encoding encoding = BUFFER;
   if (len >= 2 && args[1]->IsString()) {
-    encoding = ParseEncoding(env->isolate(),
-                             args[1]->ToString(env->isolate()),
+      safeV8::ToString(isolate, args[1])
+  .OnVal([&](Local<String> args1_str) -> void {
+encoding = ParseEncoding(env->isolate(),
+                             args1_str,
                              BUFFER);
-  }
+  
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   node::Utf8Value passphrase(env->isolate(), args[2]);
 
@@ -4204,6 +4263,7 @@ SignBase::Error Verify::VerifyFinal(const char* key_pem,
 
 
 void Verify::VerifyFinal(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   Verify* verify;
@@ -4217,10 +4277,19 @@ void Verify::VerifyFinal(const FunctionCallbackInfo<Value>& args) {
 
   enum encoding encoding = UTF8;
   if (args.Length() >= 3) {
-    encoding = ParseEncoding(env->isolate(),
-                             args[2]->ToString(env->isolate()),
+      safeV8::ToString(isolate, args[2])
+  .OnVal([&](Local<String> args2_str) -> void {
+encoding = ParseEncoding(env->isolate(),
+                             args2_str,
                              UTF8);
-  }
+  
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   ssize_t hlen = StringBytes::Size(env->isolate(), args[1], encoding);
 
@@ -4966,6 +5035,10 @@ void ECDH::GetPrivateKey(const FunctionCallbackInfo<Value>& args) {
 
 
 void ECDH::SetPrivateKey(const FunctionCallbackInfo<Value>& args) {
+  
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0)  -> void {
   Environment* env = Environment::GetCurrent(args);
 
   ECDH* ecdh;
@@ -4974,22 +5047,28 @@ void ECDH::SetPrivateKey(const FunctionCallbackInfo<Value>& args) {
   THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "Private key");
 
   BIGNUM* priv = BN_bin2bn(
-      reinterpret_cast<unsigned char*>(Buffer::Data(args[0].As<Object>())),
-      Buffer::Length(args[0].As<Object>()),
+      reinterpret_cast<unsigned char*>(Buffer::Data(args0)),
+      Buffer::Length(args0),
       nullptr);
   if (priv == nullptr)
-    return env->ThrowError("Failed to convert Buffer to BN");
+        {
+env->ThrowError("Failed to convert Buffer to BN");
+    return;
+    }
+
 
   if (!ecdh->IsKeyValidForCurve(priv)) {
     BN_free(priv);
-    return env->ThrowError("Private key is not valid for specified curve.");
+    env->ThrowError("Private key is not valid for specified curve.");
+    return;
   }
 
   int result = EC_KEY_set_private_key(ecdh->key_, priv);
   BN_free(priv);
 
   if (!result) {
-    return env->ThrowError("Failed to convert BN to a private key");
+    env->ThrowError("Failed to convert BN to a private key");
+    return;
   }
 
   // To avoid inconsistency, clear the current public key in-case computing
@@ -5000,26 +5079,44 @@ void ECDH::SetPrivateKey(const FunctionCallbackInfo<Value>& args) {
   (void) &mark_pop_error_on_return;  // Silence compiler warning.
 
   const BIGNUM* priv_key = EC_KEY_get0_private_key(ecdh->key_);
-  CHECK_NE(priv_key, nullptr);
+  if(priv_key == nullptr) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_NE(priv_key,nullptr);");
+    return;
+  }
 
   EC_POINT* pub = EC_POINT_new(ecdh->group_);
-  CHECK_NE(pub, nullptr);
+  if(pub == nullptr) {
+    Environment::GetCurrent(args)->ThrowTypeError("Failed CHECK_NE(pub,nullptr);");
+    return;
+  }
 
   if (!EC_POINT_mul(ecdh->group_, pub, priv_key, nullptr, nullptr, nullptr)) {
     EC_POINT_free(pub);
-    return env->ThrowError("Failed to generate ECDH public key");
+    env->ThrowError("Failed to generate ECDH public key");
+    return;
   }
 
   if (!EC_KEY_set_public_key(ecdh->key_, pub)) {
     EC_POINT_free(pub);
-    return env->ThrowError("Failed to set generated public key");
+    env->ThrowError("Failed to set generated public key");
+    return;
   }
 
   EC_POINT_free(pub);
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 void ECDH::SetPublicKey(const FunctionCallbackInfo<Value>& args) {
+  
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
+  return safeV8::With(isolate, args[0])
+  .OnVal([&](Local<Object> args0)  -> void {
   Environment* env = Environment::GetCurrent(args);
 
   ECDH* ecdh;
@@ -5027,15 +5124,29 @@ void ECDH::SetPublicKey(const FunctionCallbackInfo<Value>& args) {
 
   THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "Public key");
 
-  EC_POINT* pub = ecdh->BufferToPoint(Buffer::Data(args[0].As<Object>()),
-                                      Buffer::Length(args[0].As<Object>()));
+  EC_POINT* pub = ecdh->BufferToPoint(Buffer::Data(args0),
+                                      Buffer::Length(args0));
   if (pub == nullptr)
-    return env->ThrowError("Failed to convert Buffer to EC_POINT");
+        {
+env->ThrowError("Failed to convert Buffer to EC_POINT");
+    return;
+    }
+
 
   int r = EC_KEY_set_public_key(ecdh->key_, pub);
   EC_POINT_free(pub);
   if (!r)
-    return env->ThrowError("Failed to set EC_POINT as the public key");
+        {
+env->ThrowError("Failed to set EC_POINT as the public key");
+    return;
+    }
+
+
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
@@ -5449,6 +5560,7 @@ void RandomBytesAfter(uv_work_t* work_req, int status) {
 
 
 void RandomBytes(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   // maybe allow a buffer to write to? cuts down on object creation
@@ -5465,16 +5577,42 @@ void RandomBytes(const FunctionCallbackInfo<Value>& args) {
   RandomBytesRequest* req = new RandomBytesRequest(env, obj, size);
 
   if (args[1]->IsFunction()) {
-    obj->Set(FIXED_ONE_BYTE_STRING(args.GetIsolate(), "ondone"), args[1]);
+      safeV8::Set(isolate, obj,FIXED_ONE_BYTE_STRING(args.GetIsolate(),"ondone"),args[1])
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
 
     if (env->in_domain())
-      obj->Set(env->domain_string(), env->domain_array()->Get(0));
-    uv_queue_work(env->event_loop(),
+        {
+    bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Get(isolate, env->domain_array(),0)
+  .OnVal([&](Local<Value> envdomain_array_0)-> safeV8::SafeV8Promise_Base {
+  return safeV8::Set(isolate, obj,env->domain_string(),envdomain_array_0)
+  .OnVal([&]() -> void {
+
+    
+  
+  
+}
+);
+})
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+
+}
+uv_queue_work(env->event_loop(),
                   req->work_req(),
                   RandomBytesWork,
                   RandomBytesAfter);
     args.GetReturnValue().Set(obj);
-  } else {
+  
+  return safeV8::Done;
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+} else {
     env->PrintSyncTrace();
     Local<Value> argv[2];
     RandomBytesWork(req->work_req());
@@ -5490,6 +5628,7 @@ void RandomBytes(const FunctionCallbackInfo<Value>& args) {
 
 
 void GetSSLCiphers(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
 
   SSL_CTX* ctx = SSL_CTX_new(TLSv1_server_method());
@@ -5508,8 +5647,17 @@ void GetSSLCiphers(const FunctionCallbackInfo<Value>& args) {
 
   for (int i = 0; i < sk_SSL_CIPHER_num(ciphers); ++i) {
     const SSL_CIPHER* cipher = sk_SSL_CIPHER_value(ciphers, i);
-    arr->Set(i, OneByteString(args.GetIsolate(), SSL_CIPHER_get_name(cipher)));
-  }
+      safeV8::Set(isolate, arr,i,OneByteString(args.GetIsolate(),SSL_CIPHER_get_name(cipher)))
+  .OnVal([&]() -> void {
+
+  
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   SSL_free(ssl);
   SSL_CTX_free(ctx);
@@ -5561,6 +5709,7 @@ void GetHashes(const FunctionCallbackInfo<Value>& args) {
 
 
 void GetCurves(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
   const size_t num_curves = EC_get_builtin_curves(nullptr, 0);
   Local<Array> arr = Array::New(env->isolate(), num_curves);
@@ -5571,8 +5720,17 @@ void GetCurves(const FunctionCallbackInfo<Value>& args) {
 
     if (EC_get_builtin_curves(curves, num_curves)) {
       for (size_t i = 0; i < num_curves; i++) {
-        arr->Set(i, OneByteString(env->isolate(), OBJ_nid2sn(curves[i].nid)));
-      }
+          safeV8::Set(isolate, arr,i,OneByteString(env->isolate(),OBJ_nid2sn(curves[i].nid)))
+  .OnVal([&]() -> void {
+
+      
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
     }
 
     free(curves);

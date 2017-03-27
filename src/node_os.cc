@@ -1,3 +1,4 @@
+#include "safe_v8.h"
 #include "node.h"
 #include "v8.h"
 #include "env.h"
@@ -111,6 +112,7 @@ static void GetOSRelease(const FunctionCallbackInfo<Value>& args) {
 
 
 static void GetCPUInfo(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
   uv_cpu_info_t* cpu_infos;
   int count, i;
@@ -124,26 +126,62 @@ static void GetCPUInfo(const FunctionCallbackInfo<Value>& args) {
     uv_cpu_info_t* ci = cpu_infos + i;
 
     Local<Object> times_info = Object::New(env->isolate());
-    times_info->Set(env->user_string(),
-                    Number::New(env->isolate(), ci->cpu_times.user));
-    times_info->Set(env->nice_string(),
-                    Number::New(env->isolate(), ci->cpu_times.nice));
-    times_info->Set(env->sys_string(),
-                    Number::New(env->isolate(), ci->cpu_times.sys));
-    times_info->Set(env->idle_string(),
-                    Number::New(env->isolate(), ci->cpu_times.idle));
-    times_info->Set(env->irq_string(),
-                    Number::New(env->isolate(), ci->cpu_times.irq));
+      safeV8::Set(isolate, times_info,env->user_string(),Number::New(env->isolate(),ci->cpu_times.user))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      return safeV8::Set(isolate, times_info,env->nice_string(),Number::New(env->isolate(),ci->cpu_times.nice))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      return safeV8::Set(isolate, times_info,env->sys_string(),Number::New(env->isolate(),ci->cpu_times.sys))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      return safeV8::Set(isolate, times_info,env->idle_string(),Number::New(env->isolate(),ci->cpu_times.idle))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      return safeV8::Set(isolate, times_info,env->irq_string(),Number::New(env->isolate(),ci->cpu_times.irq))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
 
     Local<Object> cpu_info = Object::New(env->isolate());
-    cpu_info->Set(env->model_string(),
-                  OneByteString(env->isolate(), ci->model));
-    cpu_info->Set(env->speed_string(),
-                  Number::New(env->isolate(), ci->speed));
-    cpu_info->Set(env->times_string(), times_info);
+      return safeV8::Set(isolate, cpu_info,env->model_string(),OneByteString(env->isolate(),ci->model))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
 
-    (*cpus)->Set(i, cpu_info);
-  }
+      return safeV8::Set(isolate, cpu_info,env->speed_string(),Number::New(env->isolate(),ci->speed))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      return safeV8::Set(isolate, cpu_info,env->times_string(),times_info)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+
+      return safeV8::Set(isolate, (*cpus),i,cpu_info)
+  .OnVal([&]() -> void {
+
+  
+  
+}
+);
+
+  });
+
+  });
+
+  });
+
+  return safeV8::Done;
+}
+);
+
+  });
+
+  });
+
+  });
+
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   uv_free_cpu_info(cpu_infos, count);
   args.GetReturnValue().Set(cpus);
@@ -175,18 +213,37 @@ static void GetUptime(const FunctionCallbackInfo<Value>& args) {
 
 
 static void GetLoadAvg(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
   double loadavg[3];
   uv_loadavg(loadavg);
   Local<Array> loads = Array::New(env->isolate(), 3);
-  loads->Set(0, Number::New(env->isolate(), loadavg[0]));
-  loads->Set(1, Number::New(env->isolate(), loadavg[1]));
-  loads->Set(2, Number::New(env->isolate(), loadavg[2]));
+    return safeV8::Set(isolate, loads,0,Number::New(env->isolate(),loadavg[0]))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    return safeV8::Set(isolate, loads,1,Number::New(env->isolate(),loadavg[1]))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+    return safeV8::Set(isolate, loads,2,Number::New(env->isolate(),loadavg[2]))
+  .OnVal([&]() -> void {
+
   args.GetReturnValue().Set(loads);
+
+  
+}
+);
+
+  });
+
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
 }
 
 
 static void GetInterfaceAddresses(const FunctionCallbackInfo<Value>& args) {
+  v8::Isolate* isolate = Environment::GetCurrent(args)->isolate();
   Environment* env = Environment::GetCurrent(args);
   uv_interface_address_t* interfaces;
   int count, i;
@@ -220,11 +277,29 @@ static void GetInterfaceAddresses(const FunctionCallbackInfo<Value>& args) {
 #endif
 
     if (ret->Has(env->context(), name).FromJust()) {
-      ifarr = Local<Array>::Cast(ret->Get(name));
-    } else {
+        safeV8::Get(isolate, ret,name)
+  .OnVal([&](Local<Value> ret_name) -> void {
+ifarr = Local<Array>::Cast(ret_name);
+    
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+} else {
       ifarr = Array::New(env->isolate());
-      ret->Set(name, ifarr);
-    }
+        safeV8::Set(isolate, ret,name,ifarr)
+  .OnVal([&]() -> void {
+
+    
+  
+}
+)
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
     snprintf(mac,
              18,
@@ -250,23 +325,59 @@ static void GetInterfaceAddresses(const FunctionCallbackInfo<Value>& args) {
     }
 
     o = Object::New(env->isolate());
-    o->Set(env->address_string(), OneByteString(env->isolate(), ip));
-    o->Set(env->netmask_string(), OneByteString(env->isolate(), netmask));
-    o->Set(env->family_string(), family);
-    o->Set(env->mac_string(), FIXED_ONE_BYTE_STRING(env->isolate(), mac));
+      safeV8::Set(isolate, o,env->address_string(),OneByteString(env->isolate(),ip))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      return safeV8::Set(isolate, o,env->netmask_string(),OneByteString(env->isolate(),netmask))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      return safeV8::Set(isolate, o,env->family_string(),family)
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
+      return safeV8::Set(isolate, o,env->mac_string(),FIXED_ONE_BYTE_STRING(env->isolate(),mac))
+  .OnVal([&]()-> safeV8::SafeV8Promise_Base {
+
 
     if (interfaces[i].address.address4.sin_family == AF_INET6) {
       uint32_t scopeid = interfaces[i].address.address6.sin6_scope_id;
-      o->Set(env->scopeid_string(),
-             Integer::NewFromUnsigned(env->isolate(), scopeid));
-    }
+            bool safeV8_Failed1 = false;
+    Local<Value> safeV8_exceptionThrown1;
+safeV8::Set(isolate, o,env->scopeid_string(),Integer::NewFromUnsigned(env->isolate(),scopeid))
+  .OnVal([&]() -> void {
+
+    
+  
+}
+)
+    .OnErr([&](Local<Value> exception){ safeV8_Failed1 = true; safeV8_exceptionThrown1 = exception; });
+    if(safeV8_Failed1) return safeV8::Err(safeV8_exceptionThrown1);
+}
 
     const bool internal = interfaces[i].is_internal;
     o->Set(env->internal_string(),
            internal ? True(env->isolate()) : False(env->isolate()));
 
-    ifarr->Set(ifarr->Length(), o);
-  }
+      return safeV8::Set(isolate, ifarr,ifarr->Length(),o)
+  .OnVal([&]() -> void {
+
+  
+  
+}
+);
+
+  return safeV8::Done;
+}
+);
+
+  });
+
+  });
+
+  })
+  .OnErr([&isolate](Local<Value> exception){
+    isolate->ThrowException(exception);
+  });
+}
 
   uv_free_interface_addresses(interfaces, count);
   args.GetReturnValue().Set(ret);
